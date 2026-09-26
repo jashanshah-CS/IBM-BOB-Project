@@ -196,4 +196,29 @@ describe('generator — meaningful predicate assertions', () => {
     expect(generated?.source).toContain('expect(findLargest([-10, -2, -5])).toEqual(-2)');
     await rm(outDir, { recursive: true, force: true });
   });
+
+  it('generates exact object assertions for a statistics function', async () => {
+    const outDir = join(tmpdir(), 'testforge-statistics-output');
+    const symbols: SourceSymbol[] = [{
+      name: 'calculateStatistics',
+      kind: 'function',
+      filePath: join(process.cwd(), 'examples', 'calculateStatistics.ts'),
+      lineStart: 1,
+      lineEnd: 30,
+      params: [{ name: 'values', type: 'number[]', optional: false }],
+      returnType: 'Statistics',
+      isAsync: false,
+      isExported: true,
+    }];
+    const [generated] = await generateTests(
+      symbols,
+      discoverEdgeCases(symbols),
+      outDir,
+      'unit',
+    );
+    expect(generated?.source).toContain('calculateStatistics([5, -2, 0, 3, 10])');
+    expect(generated?.source).toContain('"median":3');
+    expect(generated?.source).toContain('calculateStatistics([1, NaN, Infinity, 3, -Infinity])');
+    await rm(outDir, { recursive: true, force: true });
+  });
 });

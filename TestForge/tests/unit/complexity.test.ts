@@ -31,4 +31,17 @@ describe('estimateComplexity', () => {
     expect(result.time).toBe('O(n log n)');
     expect(result.space).toBe('O(n)');
   });
+
+  it('treats sorting and sequential loops as O(n log n)', () => {
+    const result = estimateComplexity(`
+      export function stats(values: number[]) {
+        const sorted = [...values].sort((a, b) => a - b);
+        let total = 0;
+        for (const value of sorted) total += value;
+        return total;
+      }
+    `);
+    expect(result.time).toBe('O(n log n)');
+    expect(result.space).toBe('O(n)');
+  });
 });

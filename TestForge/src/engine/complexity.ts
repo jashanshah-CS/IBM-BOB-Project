@@ -95,13 +95,11 @@ export function estimateComplexity(code: string): ComplexityEstimate {
   } else if (maxLoopDepth === 2) {
     time = 'O(n^2)';
     evidence.add('Two nested loops were found.');
-  } else if (hasSort && maxLoopDepth >= 1) {
-    time = 'O(n^2 log n)';
-    confidence = 'low';
-    evidence.add('Sorting occurs within a loop.');
   } else if (hasSort) {
     time = 'O(n log n)';
-    evidence.add('A sort operation was found.');
+    evidence.add(maxLoopDepth >= 1
+      ? 'Sorting and sequential linear passes were found; sorting dominates.'
+      : 'A sort operation was found.');
   } else if (maxLoopDepth === 1 || linearOperations > 0) {
     time = 'O(n)';
     evidence.add(maxLoopDepth === 1 ? 'A single loop was found.' : 'A linear array operation was found.');

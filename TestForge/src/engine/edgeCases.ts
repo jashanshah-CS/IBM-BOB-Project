@@ -173,6 +173,16 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
       const findsMaximum = t.includes('number') &&
         /(?:find)?(?:largest|max(?:imum)?)/i.test(sym.name) &&
         sym.returnType.toLowerCase().includes('number');
+      const removesDuplicates = t.includes('number') &&
+        /(?:remove)?duplicates?|unique/i.test(sym.name) &&
+        sym.returnType.toLowerCase().includes('number');
+      const calculatesStatistics = t.includes('number') &&
+        /statistics|stats|summary/i.test(sym.name) &&
+        !sym.returnType.toLowerCase().includes('number[]');
+      const emptyStatistics = JSON.stringify({
+        count: 0, minimum: 0, maximum: 0, sum: 0, average: 0,
+        median: 0, positiveCount: 0, negativeCount: 0, zeroCount: 0,
+      });
       cases.push(
         {
           symbolName: sym.name,
@@ -182,7 +192,9 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
           expectedBehaviour: returnsUndefinedForEmpty
             ? 'Should return undefined for an empty collection'
             : 'Should return a sensible default for empty collections',
-          expectedResult: returnsUndefinedForEmpty ? 'undefined' : undefined,
+          expectedResult: returnsUndefinedForEmpty
+            ? 'undefined'
+            : calculatesStatistics ? emptyStatistics : undefined,
         },
         {
           symbolName: sym.name,
@@ -190,7 +202,12 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
           description: `Single-element collection for "${param.name}"`,
           inputSuggestion: `${param.name} = [${oneItem}]`,
           expectedBehaviour: 'Should handle single-element collections correctly',
-          expectedResult: findsMaximum ? oneItem : undefined,
+          expectedResult: findsMaximum ? oneItem
+            : removesDuplicates ? `[${oneItem}]`
+              : calculatesStatistics ? JSON.stringify({
+                count: 1, minimum: 1, maximum: 1, sum: 1, average: 1,
+                median: 1, positiveCount: 1, negativeCount: 0, zeroCount: 0,
+              }) : undefined,
         },
       );
       if (findsMaximum) {
@@ -210,6 +227,63 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
             inputSuggestion: `${param.name} = [-10, -2, -5]`,
             expectedBehaviour: 'Should return the greatest negative value',
             expectedResult: '-2',
+          },
+        );
+      }
+      if (removesDuplicates) {
+        cases.push(
+          {
+            symbolName: sym.name,
+            category: 'boundary',
+            description: `Repeated values in "${param.name}"`,
+            inputSuggestion: `${param.name} = [1, 2, 2, 3, 1]`,
+            expectedBehaviour: 'Should keep one copy of each value in insertion order',
+            expectedResult: '[1, 2, 3]',
+          },
+          {
+            symbolName: sym.name,
+            category: 'type-coercion',
+            description: `Non-finite values in "${param.name}"`,
+            inputSuggestion: `${param.name} = [1, NaN, Infinity, 2, -Infinity]`,
+            expectedBehaviour: 'Should exclude non-finite values',
+            expectedResult: '[1, 2]',
+          },
+        );
+      }
+      if (calculatesStatistics) {
+        cases.push(
+          {
+            symbolName: sym.name,
+            category: 'boundary',
+            description: `Mixed positive, negative, and zero values in "${param.name}"`,
+            inputSuggestion: `${param.name} = [5, -2, 0, 3, 10]`,
+            expectedBehaviour: 'Should calculate every statistical field',
+            expectedResult: JSON.stringify({
+              count: 5, minimum: -2, maximum: 10, sum: 16, average: 3.2,
+              median: 3, positiveCount: 3, negativeCount: 1, zeroCount: 1,
+            }),
+          },
+          {
+            symbolName: sym.name,
+            category: 'boundary',
+            description: `Even-sized collection in "${param.name}"`,
+            inputSuggestion: `${param.name} = [1, 2, 3, 4]`,
+            expectedBehaviour: 'Should average the two middle values for the median',
+            expectedResult: JSON.stringify({
+              count: 4, minimum: 1, maximum: 4, sum: 10, average: 2.5,
+              median: 2.5, positiveCount: 4, negativeCount: 0, zeroCount: 0,
+            }),
+          },
+          {
+            symbolName: sym.name,
+            category: 'type-coercion',
+            description: `Non-finite values in "${param.name}"`,
+            inputSuggestion: `${param.name} = [1, NaN, Infinity, 3, -Infinity]`,
+            expectedBehaviour: 'Should calculate statistics from finite values only',
+            expectedResult: JSON.stringify({
+              count: 2, minimum: 1, maximum: 3, sum: 4, average: 2,
+              median: 2, positiveCount: 2, negativeCount: 0, zeroCount: 0,
+            }),
           },
         );
       }

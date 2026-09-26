@@ -73,6 +73,10 @@ function suggestedValue(raw: string): unknown {
     try {
       return JSON.parse(value);
     } catch {
+      if (value.startsWith('[')) {
+        const inner = value.slice(1, -1).trim();
+        return inner === '' ? [] : inner.split(',').map((item) => suggestedValue(item));
+      }
       return value;
     }
   }

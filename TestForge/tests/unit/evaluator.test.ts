@@ -40,6 +40,39 @@ const CORRECT_FIND_LARGEST = BROKEN_FIND_LARGEST.replace(
   'let index = 1',
 );
 
+const CALCULATE_STATISTICS = `
+export interface Statistics {
+  count: number; minimum: number; maximum: number; sum: number;
+  average: number; median: number; positiveCount: number;
+  negativeCount: number; zeroCount: number;
+}
+export function calculateStatistics(values: number[]): Statistics {
+  if (!Array.isArray(values)) throw new TypeError('Values must be an array');
+  const validValues = values.filter((value) => Number.isFinite(value));
+  if (validValues.length === 0) return {
+    count: 0, minimum: 0, maximum: 0, sum: 0, average: 0, median: 0,
+    positiveCount: 0, negativeCount: 0, zeroCount: 0,
+  };
+  const sortedValues = [...validValues].sort((a, b) => a - b);
+  let sum = 0, positiveCount = 0, negativeCount = 0, zeroCount = 0;
+  for (const value of sortedValues) {
+    sum += value;
+    if (value > 0) positiveCount++;
+    else if (value < 0) negativeCount++;
+    else zeroCount++;
+  }
+  const middle = Math.floor(sortedValues.length / 2);
+  const median = sortedValues.length % 2 === 0
+    ? (sortedValues[middle - 1] + sortedValues[middle]) / 2
+    : sortedValues[middle];
+  return {
+    count: sortedValues.length, minimum: sortedValues[0],
+    maximum: sortedValues[sortedValues.length - 1], sum,
+    average: sum / sortedValues.length, median,
+    positiveCount, negativeCount, zeroCount,
+  };
+}`;
+
 describe('evaluateTypeScript', () => {
   it('verifies a correct bounded predicate', async () => {
     const result = await evaluateTypeScript(CORRECT);
@@ -72,6 +105,24 @@ describe('evaluateTypeScript', () => {
     const result = await evaluateTypeScript(CORRECT_FIND_LARGEST);
     expect(result.status).toBe('verified');
     expect(result.failed).toBe(0);
+  });
+
+  it('verifies all fields produced by a statistics function', async () => {
+    const result = await evaluateTypeScript(CALCULATE_STATISTICS);
+    expect(result.status).toBe('verified');
+    expect(result.failed).toBe(0);
+    expect(result.complexity.time).toBe('O(n log n)');
+  });
+
+  it('detects an incorrect statistics median', async () => {
+    const broken = CALCULATE_STATISTICS.replace(
+      '? (sortedValues[middle - 1] + sortedValues[middle]) / 2',
+      '? sortedValues[middle]',
+    );
+    const result = await evaluateTypeScript(broken);
+    expect(result.status).toBe('failing');
+    expect(result.tests.some((test) =>
+      test.name.includes('Even-sized') && !test.passed)).toBe(true);
   });
 
   it('exposes a range OR bug and proposes a correction', async () => {
