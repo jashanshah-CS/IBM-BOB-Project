@@ -32,13 +32,22 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
 
     // Nullish inputs
     if (!param.optional) {
-      cases.push({
-        symbolName: sym.name,
-        category: 'nullish',
-        description: `Pass null/undefined for required param "${param.name}"`,
-        inputSuggestion: `${param.name} = undefined`,
-        expectedBehaviour: 'Should throw or return a defined error response',
-      });
+      cases.push(
+        {
+          symbolName: sym.name,
+          category: 'nullish',
+          description: `Pass undefined for required param "${param.name}"`,
+          inputSuggestion: `${param.name} = undefined`,
+          expectedBehaviour: 'Should reject invalid required input',
+        },
+        {
+          symbolName: sym.name,
+          category: 'nullish',
+          description: `Pass null for required param "${param.name}"`,
+          inputSuggestion: `${param.name} = null`,
+          expectedBehaviour: 'Should reject invalid required input',
+        },
+      );
     }
 
     // String-specific
@@ -85,7 +94,68 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
           inputSuggestion: `${param.name} = -1`,
           expectedBehaviour: 'Should reject or handle negative inputs per spec',
         },
+        {
+          symbolName: sym.name,
+          category: 'type-coercion',
+          description: `NaN for "${param.name}"`,
+          inputSuggestion: `${param.name} = NaN`,
+          expectedBehaviour: 'Should reject invalid numeric input',
+        },
+        {
+          symbolName: sym.name,
+          category: 'overflow',
+          description: `Infinity for "${param.name}"`,
+          inputSuggestion: `${param.name} = Infinity`,
+          expectedBehaviour: 'Should reject invalid numeric input',
+        },
+        {
+          symbolName: sym.name,
+          category: 'overflow',
+          description: `Negative infinity for "${param.name}"`,
+          inputSuggestion: `${param.name} = -Infinity`,
+          expectedBehaviour: 'Should reject invalid numeric input',
+        },
+        {
+          symbolName: sym.name,
+          category: 'type-coercion',
+          description: `Decimal value for "${param.name}"`,
+          inputSuggestion: `${param.name} = 1.5`,
+          expectedBehaviour: 'Should reject invalid numeric input when an integer is required',
+        },
       );
+
+      for (const constraint of param.numericConstraints ?? []) {
+        const { operator, value } = constraint;
+        const exactAccepted = operator === '<=' || operator === '>=';
+        const belowAccepted = operator === '<' || operator === '<=';
+        const aboveAccepted = operator === '>' || operator === '>=';
+        const expectation = (accepted: boolean) => accepted
+          ? 'Should accept valid boundary input'
+          : 'Should reject input outside a documented boundary';
+        cases.push(
+          {
+            symbolName: sym.name,
+            category: 'boundary',
+            description: `Exact discovered boundary ${value} for "${param.name}"`,
+            inputSuggestion: `${param.name} = ${value}`,
+            expectedBehaviour: expectation(exactAccepted),
+          },
+          {
+            symbolName: sym.name,
+            category: 'boundary',
+            description: `Value immediately below discovered boundary ${value} for "${param.name}"`,
+            inputSuggestion: `${param.name} = ${value - 1}`,
+            expectedBehaviour: expectation(belowAccepted),
+          },
+          {
+            symbolName: sym.name,
+            category: 'boundary',
+            description: `Value immediately above discovered boundary ${value} for "${param.name}"`,
+            inputSuggestion: `${param.name} = ${value + 1}`,
+            expectedBehaviour: expectation(aboveAccepted),
+          },
+        );
+      }
     }
 
     // Array / collection
@@ -120,7 +190,10 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
     });
   }
 
-  return cases;
+  return [...new Map(cases.map((testCase) => [
+    `${testCase.symbolName}:${testCase.inputSuggestion}`,
+    testCase,
+  ])).values()];
 }
 
 // ---------------------------------------------------------------------------

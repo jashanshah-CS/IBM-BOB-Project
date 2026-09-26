@@ -15,6 +15,10 @@ export interface ParameterInfo {
   type: string;
   optional: boolean;
   defaultValue?: string;
+  numericConstraints?: Array<{
+    operator: '<' | '<=' | '>' | '>=';
+    value: number;
+  }>;
 }
 
 export interface DocSection {

@@ -35,6 +35,28 @@ function parseParams(raw: string): ParameterInfo[] {
     });
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function parseParamsWithBoundaries(raw: string, source: string): ParameterInfo[] {
+  return parseParams(raw).map((param) => {
+    if (!param.type.toLowerCase().includes('number')) return param;
+    const name = escapeRegExp(param.name);
+    const pattern = new RegExp(`\\b${name}\\s*(<=|>=|<|>)\\s*(-?\\d+(?:\\.\\d+)?)`, 'g');
+    const constraints = [...source.matchAll(pattern)]
+      .map((match) => ({
+        operator: match[1] as '<' | '<=' | '>' | '>=',
+        value: Number(match[2]),
+      }))
+      .filter((constraint) => Number.isFinite(constraint.value));
+    return {
+      ...param,
+      numericConstraints: constraints,
+    };
+  });
+}
+
 function lineOf(source: string, index: number): number {
   return source.slice(0, index).split('\n').length;
 }
@@ -55,7 +77,7 @@ export async function analyseFile(filePath: string): Promise<SourceSymbol[]> {
       filePath,
       lineStart: lineOf(source, match.index ?? 0),
       lineEnd: lineOf(source, (match.index ?? 0) + match[0].length),
-      params: parseParams(match[3] ?? ''),
+      params: parseParamsWithBoundaries(match[3] ?? '', source),
       returnType: (match[4] ?? 'void').trim(),
       isAsync: Boolean(match[1]),
       isExported: true,
@@ -70,7 +92,7 @@ export async function analyseFile(filePath: string): Promise<SourceSymbol[]> {
       filePath,
       lineStart: lineOf(source, match.index ?? 0),
       lineEnd: lineOf(source, (match.index ?? 0) + match[0].length),
-      params: parseParams(match[3] ?? ''),
+      params: parseParamsWithBoundaries(match[3] ?? '', source),
       returnType: (match[4] ?? 'unknown').trim(),
       isAsync: Boolean(match[2]),
       isExported: true,
@@ -103,7 +125,7 @@ export async function analyseFile(filePath: string): Promise<SourceSymbol[]> {
       filePath,
       lineStart: lineOf(source, match.index ?? 0),
       lineEnd: lineOf(source, (match.index ?? 0) + match[0].length),
-      params: parseParams(match[3] ?? ''),
+      params: parseParamsWithBoundaries(match[3] ?? '', source),
       returnType: (match[4] ?? 'void').trim(),
       isAsync: /async/.test(match[0]),
       isExported: false,

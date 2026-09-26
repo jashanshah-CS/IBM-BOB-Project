@@ -26,6 +26,31 @@ npm test
 npm run coverage
 ```
 
+Open `http://localhost:3000/playground` after running `npm run dev` to
+analyse pasted TypeScript and generate tests in the browser. Download both
+`source.ts` and `source.test.ts` into the same directory; the generated test
+uses a portable `./source.js` import that Vitest resolves to the TypeScript
+source file.
+
+The current generator supports exported TypeScript functions. It recognises
+primitive parameter types, predicate/validator return values, nullish inputs,
+numeric special values, and numeric boundaries written as comparisons such as
+`quantity >= 1` and `quantity <= 100`.
+
+The playground's **Run Tests** action executes the derived cases and displays
+each pass or failure with expected and actual values. **Analyse** also runs this
+verification automatically. For a supported range-condition defect, the UI
+highlights the affected line, shows corrected code, and lets the user apply the
+suggestion before rerunning the tests. A passing result means all derived tests
+passed; it is evidence for the analysed scenarios, not proof that arbitrary
+programs are defect-free.
+
+The **Complexity** tab reports heuristic time and space complexity, cyclomatic
+complexity, maintainability risk, confidence and the syntax patterns supporting
+the estimate. These values are estimates rather than formal proofs because
+library internals, input distributions and runtime behaviour are not visible
+from syntax alone.
+
 ## Scripts
 
 | Script | Description |
