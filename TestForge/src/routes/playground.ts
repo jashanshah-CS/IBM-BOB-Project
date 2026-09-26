@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { analyseFile } from '../engine/analyser.js';
 import { discoverEdgeCases } from '../engine/edgeCases.js';
 import { generateTests } from '../engine/generator.js';
-import { evaluateTypeScript } from '../engine/evaluator.js';
+import { evaluateTypeScriptIsolated } from '../engine/isolatedEvaluator.js';
 
 export const playgroundRouter = Router();
 
@@ -101,7 +101,7 @@ playgroundRouter.post('/run', async (req, res, next) => {
       res.status(400).json({ error: 'No code provided' });
       return;
     }
-    res.json(await evaluateTypeScript(code));
+    res.json(await evaluateTypeScriptIsolated(code));
   } catch (err) {
     next(err);
   }

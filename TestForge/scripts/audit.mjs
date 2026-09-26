@@ -1,4 +1,5 @@
 import { evaluateTypeScript } from '../dist/engine/evaluator.js';
+import { evaluateTypeScriptIsolated } from '../dist/engine/isolatedEvaluator.js';
 
 const cases = [
   {
@@ -182,4 +183,14 @@ for (const auditCase of cases) {
 }
 
 console.log(`\nAudit result: ${cases.length - failures}/${cases.length} scenarios passed.`);
+
+const timeoutResult = await evaluateTypeScriptIsolated(
+  'export function hangs(): never { while (true) {} }',
+  200,
+);
+const timeoutPassed = timeoutResult.status === 'failing' &&
+  timeoutResult.tests.some((test) => test.name === 'Execution safety timeout');
+console.log(`${timeoutPassed ? 'PASS' : 'FAIL'} | infinite-loop isolation | ${timeoutResult.status}`);
+if (!timeoutPassed) failures++;
+
 if (failures > 0) process.exitCode = 1;

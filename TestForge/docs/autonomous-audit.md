@@ -18,10 +18,11 @@ The matrix includes valid and defective range validators, integer constraints, s
 - Promise-wrapped Boolean return types receive Boolean assertions.
 - Inline object types containing commas are parsed as one parameter and are no longer mistaken for primitive string or number inputs.
 - Generic asynchronous failures are no longer invented without evidence from the source or documentation.
+- Submitted code runs in an isolated worker with a safety timeout, so an infinite loop produces a failed check without freezing the API or dashboard.
 
 ## Verification
 
-- `npm run audit`: 19/19 scenarios passed.
+- `npm run audit`: 19/19 evaluator scenarios plus infinite-loop isolation passed.
 - `npm run build`: passed.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
