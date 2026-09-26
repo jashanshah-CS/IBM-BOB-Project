@@ -18,13 +18,13 @@ const METHOD_RE =
 
 function parseParams(raw: string): ParameterInfo[] {
   if (!raw.trim()) return [];
-  return raw
-    .split(',')
+  return splitTopLevel(raw, ',')
     .map((p) => p.trim())
     .filter(Boolean)
     .map((p) => {
-      const [nameTypePart, defaultValue] = p.split('=').map((s) => s.trim());
-      const [rawName, type] = (nameTypePart ?? '').split(':').map((s) => s.trim());
+      const [nameTypePart, defaultValue] = splitTopLevel(p, '=').map((s) => s.trim());
+      const [rawName, ...typeParts] = splitTopLevel(nameTypePart ?? '', ':').map((s) => s.trim());
+      const type = typeParts.join(':');
       const optional = (rawName ?? '').endsWith('?') || defaultValue !== undefined;
       return {
         name: (rawName ?? '').replace(/\?$/, ''),
@@ -37,6 +37,62 @@ function parseParams(raw: string): ParameterInfo[] {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function splitTopLevel(value: string, separator: string): string[] {
+  const parts: string[] = [];
+  let start = 0;
+  let round = 0;
+  let square = 0;
+  let curly = 0;
+  let angle = 0;
+  let quote = '';
+  for (let index = 0; index < value.length; index++) {
+    const char = value[index] ?? '';
+    if (quote) {
+      if (char === quote && value[index - 1] !== '\\') quote = '';
+      continue;
+    }
+    if (char === '"' || char === "'" || char === '`') { quote = char; continue; }
+    if (char === '(') round++;
+    else if (char === ')') round--;
+    else if (char === '[') square++;
+    else if (char === ']') square--;
+    else if (char === '{') curly++;
+    else if (char === '}') curly--;
+    else if (char === '<') angle++;
+    else if (char === '>') angle = Math.max(0, angle - 1);
+    else if (char === separator && round === 0 && square === 0 && curly === 0 && angle === 0) {
+      parts.push(value.slice(start, index));
+      start = index + 1;
+    }
+  }
+  parts.push(value.slice(start));
+  return parts;
+}
+
+function blockScope(source: string, openingBrace: number): string {
+  if (openingBrace < 0 || source[openingBrace] !== '{') return source;
+  let depth = 0;
+  for (let index = openingBrace; index < source.length; index++) {
+    if (source[index] === '{') depth++;
+    if (source[index] === '}') {
+      depth--;
+      if (depth === 0) return source.slice(openingBrace, index + 1);
+    }
+  }
+  return source.slice(openingBrace);
+}
+
+function scopeForMatch(source: string, index: number, header: string): string {
+  const braceInHeader = header.lastIndexOf('{');
+  if (braceInHeader >= 0) return blockScope(source, index + braceInHeader);
+  const bodyStart = source.indexOf('{', index + header.length);
+  const lineEnd = source.indexOf('\n', index + header.length);
+  if (bodyStart >= 0 && (lineEnd < 0 || bodyStart < lineEnd)) {
+    return blockScope(source, bodyStart);
+  }
+  return source.slice(index, lineEnd < 0 ? source.length : lineEnd);
 }
 
 function parseParamsWithBoundaries(raw: string, source: string): ParameterInfo[] {
@@ -73,13 +129,15 @@ export async function analyseFile(filePath: string): Promise<SourceSymbol[]> {
 
   // Named exports: functions
   for (const match of source.matchAll(FUNCTION_RE)) {
+    const matchIndex = match.index ?? 0;
+    const scope = scopeForMatch(source, matchIndex, match[0]);
     symbols.push({
       name: match[2] ?? '',
       kind: 'function',
       filePath,
-      lineStart: lineOf(source, match.index ?? 0),
-      lineEnd: lineOf(source, (match.index ?? 0) + match[0].length),
-      params: parseParamsWithBoundaries(match[3] ?? '', source),
+      lineStart: lineOf(source, matchIndex),
+      lineEnd: lineOf(source, matchIndex + scope.length),
+      params: parseParamsWithBoundaries(match[3] ?? '', scope),
       returnType: (match[4] ?? 'void').trim(),
       isAsync: Boolean(match[1]),
       isExported: true,
@@ -88,13 +146,15 @@ export async function analyseFile(filePath: string): Promise<SourceSymbol[]> {
 
   // Arrow-function exports
   for (const match of source.matchAll(ARROW_EXPORT_RE)) {
+    const matchIndex = match.index ?? 0;
+    const scope = scopeForMatch(source, matchIndex, match[0]);
     symbols.push({
       name: match[1] ?? '',
       kind: 'arrow',
       filePath,
       lineStart: lineOf(source, match.index ?? 0),
       lineEnd: lineOf(source, (match.index ?? 0) + match[0].length),
-      params: parseParamsWithBoundaries(match[3] ?? '', source),
+      params: parseParamsWithBoundaries(match[3] ?? '', scope),
       returnType: (match[4] ?? 'unknown').trim(),
       isAsync: Boolean(match[2]),
       isExported: true,
@@ -127,7 +187,10 @@ export async function analyseFile(filePath: string): Promise<SourceSymbol[]> {
       filePath,
       lineStart: lineOf(source, match.index ?? 0),
       lineEnd: lineOf(source, (match.index ?? 0) + match[0].length),
-      params: parseParamsWithBoundaries(match[3] ?? '', source),
+      params: parseParamsWithBoundaries(
+        match[3] ?? '',
+        scopeForMatch(source, match.index ?? 0, match[0]),
+      ),
       returnType: (match[4] ?? 'void').trim(),
       isAsync: /async/.test(match[0]),
       isExported: false,

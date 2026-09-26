@@ -15,7 +15,8 @@
     "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --fix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "audit": "npm run build && node scripts/audit.mjs"
   },
   "dependencies": {
     "express": "^4.19.2",

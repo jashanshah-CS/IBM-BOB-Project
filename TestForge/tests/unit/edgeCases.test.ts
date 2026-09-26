@@ -70,11 +70,11 @@ describe('discoverEdgeCases', () => {
     expect(cases.some((edgeCase) => edgeCase.inputSuggestion === 'items = 0')).toBe(false);
   });
 
-  it('adds an async-error edge case for async symbols', () => {
+  it('does not invent an unexecutable rejection path for async symbols', () => {
     const sym = makeSymbol({ isAsync: true });
     const cases = discoverEdgeCases([sym]);
     const asyncErr = cases.filter((c) => c.category === 'async-error');
-    expect(asyncErr.length).toBeGreaterThanOrEqual(1);
+    expect(asyncErr).toHaveLength(0);
   });
 
   it('surfaces edge cases from doc sections containing "must"', () => {

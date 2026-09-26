@@ -108,10 +108,10 @@ function defaultArgFor(param: ParameterInfo): string {
     if (t.includes('boolean')) return '[true]';
     return '[{}]';
   }
+  if (t.includes('object') || t === 'record' || t.trim().startsWith('{')) return '{}';
   if (t.includes('string'))  return `'test'`;
   if (t.includes('boolean')) return 'true';
   if (t.includes('number'))  return String(validNumericValue(param));
-  if (t.includes('object') || t === 'record') return '{}';
   return 'undefined';
 }
 
@@ -128,11 +128,18 @@ function callExpr(symName: string, params: ParameterInfo[]): string {
 }
 
 function returnsBoolean(sym: SourceSymbol): boolean {
-  return sym.returnType.trim().toLowerCase() === 'boolean';
+  return /^(?:promise\s*<\s*)?boolean\s*>?$/i.test(sym.returnType.trim());
 }
 
 function returnsValidationResult(sym: SourceSymbol): boolean {
   return /validationresult/i.test(sym.returnType);
+}
+
+function booleanExpectation(behaviour: string): boolean | undefined {
+  if (/\baccept|\bvalid|\btrue/i.test(behaviour) &&
+      !/invalid|reject|outside|not valid/i.test(behaviour)) return true;
+  if (/invalid|reject|outside|not valid|\bfalse\b/i.test(behaviour)) return false;
+  return undefined;
 }
 
 function suggestedValue(param: ParameterInfo, rawValue: string): string {
@@ -176,8 +183,7 @@ function renderEdgeCaseBody(
     return defaultArgFor(p);
   });
   const call = `${sym.name}(${args.join(', ')})`;
-  const shouldAccept = /\baccept|\bvalid|\btrue/i.test(behaviour) &&
-    !/invalid|reject|outside|not valid/i.test(behaviour);
+  const expectedBoolean = booleanExpectation(behaviour);
 
   if (ec.expectedResult !== undefined) {
     lines.push(`    expect(${call}).toEqual(${ec.expectedResult});`);
@@ -187,13 +193,21 @@ function renderEdgeCaseBody(
   // Predicates and validators have an exact, useful contract for rejected
   // inputs. Prefer that over weak "does not throw" assertions.
   if (returnsBoolean(sym)) {
-    lines.push(`    expect(${call}).toBe(${shouldAccept ? 'true' : 'false'});`);
+    if (expectedBoolean === undefined) {
+      lines.push(`    expect(typeof ${call}).toBe('boolean');`);
+    } else {
+      lines.push(`    expect(${call}).toBe(${expectedBoolean ? 'true' : 'false'});`);
+    }
     return lines;
   }
 
   if (returnsValidationResult(sym)) {
     lines.push(`    const result = ${call};`);
-    lines.push(`    expect(result.valid).toBe(${shouldAccept ? 'true' : 'false'});`);
+    if (expectedBoolean === undefined) {
+      lines.push(`    expect(typeof result.valid).toBe('boolean');`);
+    } else {
+      lines.push(`    expect(result.valid).toBe(${expectedBoolean ? 'true' : 'false'});`);
+    }
     return lines;
   }
 
@@ -267,7 +281,7 @@ function renderUnitTestFile(
     lines.push(`  it(${itPrefix}'returns a result for valid input', ${itPrefix}() => {`);
     lines.push(`    const result = ${normalCall};`);
     if (returnsBoolean(sym)) {
-      lines.push(`    expect(result).toBe(true);`);
+      lines.push(`    expect(typeof result).toBe('boolean');`);
     } else if (returnsValidationResult(sym)) {
       lines.push(`    expect(result.valid).toBe(true);`);
     } else {

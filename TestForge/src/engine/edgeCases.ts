@@ -32,6 +32,8 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
     const t = param.type.toLowerCase();
     const isCollection = t.includes('[]') || t.includes('array') ||
       t.includes('set') || t.includes('map');
+    const isString = /(^|\|)\s*string\s*(\||$)/.test(t);
+    const isNumber = /(^|\|)\s*number\s*(\||$)/.test(t);
 
     // Nullish inputs
     if (!param.optional) {
@@ -54,7 +56,7 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
     }
 
     // String-specific
-    if (t.includes('string') && !isCollection) {
+    if (isString && !isCollection) {
       cases.push(
         {
           symbolName: sym.name,
@@ -68,13 +70,13 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
           category: 'boundary',
           description: `Very long string for "${param.name}"`,
           inputSuggestion: `${param.name} = "a".repeat(10_000)`,
-          expectedBehaviour: 'Should not exceed memory limits or hang',
+          expectedBehaviour: 'Should accept a valid long string without hanging',
         },
       );
     }
 
     // Number-specific
-    if (t.includes('number') && !isCollection) {
+    if (isNumber && !isCollection) {
       const decimalValue = validNumericValue(param, true);
       cases.push(
         {
@@ -288,17 +290,6 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
         );
       }
     }
-  }
-
-  // Async functions should have their rejection path tested
-  if (sym.isAsync) {
-    cases.push({
-      symbolName: sym.name,
-      category: 'async-error',
-      description: `${sym.name} rejects / throws asynchronously`,
-      inputSuggestion: 'inject a dependency that rejects',
-      expectedBehaviour: 'Caller should receive a rejected promise, not a silent failure',
-    });
   }
 
   return [...new Map(cases.map((testCase) => [

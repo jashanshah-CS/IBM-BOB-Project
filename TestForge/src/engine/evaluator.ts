@@ -50,10 +50,10 @@ function defaultValue(param: ParameterInfo): unknown {
     if (type.includes('boolean')) return [true];
     return [{}];
   }
+  if (type.includes('object') || type === 'record' || type.trim().startsWith('{')) return {};
   if (type.includes('string')) return 'test';
   if (type.includes('boolean')) return true;
   if (type.includes('number')) return validNumericValue(param);
-  if (type.includes('object') || type === 'record') return {};
   return 1;
 }
 
@@ -85,10 +85,12 @@ function suggestedValue(raw: string): unknown {
   return value;
 }
 
-function shouldAccept(edgeCase: EdgeCase): boolean {
+function expectedBoolean(edgeCase: EdgeCase): boolean | undefined {
   const expected = edgeCase.expectedBehaviour.toLowerCase();
-  return /\baccept|\bvalid|\btrue/i.test(expected) &&
-    !/invalid|reject|outside|not valid/i.test(expected);
+  if (/\baccept|\bvalid|\btrue/i.test(expected) &&
+      !/invalid|reject|outside|not valid/i.test(expected)) return true;
+  if (/invalid|reject|outside|not valid|\bfalse\b/i.test(expected)) return false;
+  return undefined;
 }
 
 function display(value: unknown): string {
@@ -112,13 +114,19 @@ function equalValues(actual: unknown, expected: unknown): boolean {
   }
 }
 
-function assertionFor(sym: SourceSymbol, result: unknown, expectedValid: boolean) {
-  if (sym.returnType.trim().toLowerCase() === 'boolean') {
+function assertionFor(sym: SourceSymbol, result: unknown, expectedValid?: boolean) {
+  if (/^(?:promise\s*<\s*)?boolean\s*>?$/i.test(sym.returnType.trim())) {
+    if (expectedValid === undefined) {
+      return { passed: typeof result === 'boolean', expected: 'a boolean result' };
+    }
     return { passed: result === expectedValid, expected: String(expectedValid) };
   }
   if (/validationresult/i.test(sym.returnType)) {
     const actualValid = typeof result === 'object' && result !== null &&
       'valid' in result ? (result as { valid: unknown }).valid : undefined;
+    if (expectedValid === undefined) {
+      return { passed: typeof actualValid === 'boolean', expected: '{ valid: boolean }' };
+    }
     return { passed: actualValid === expectedValid, expected: `{ valid: ${expectedValid} }` };
   }
   return { passed: result !== undefined, expected: 'a defined result' };
@@ -129,7 +137,7 @@ async function executeCase(
   sym: SourceSymbol,
   name: string,
   args: unknown[],
-  expectedValid: boolean,
+  expectedValid?: boolean,
   acceptsThrow = false,
   expectedResult?: unknown,
   hasExpectedResult = false,
@@ -225,7 +233,7 @@ export async function evaluateTypeScript(code: string): Promise<EvaluationResult
       if (typeof exported !== 'function') continue;
       const fn = exported as (...args: unknown[]) => unknown;
       const normalArgs = sym.params.map(defaultValue);
-      tests.push(await executeCase(fn, sym, `${sym.name}: valid input`, normalArgs, true));
+      tests.push(await executeCase(fn, sym, `${sym.name}: valid input`, normalArgs, undefined));
 
       for (const edgeCase of edgeCases.filter((candidate) => candidate.symbolName === sym.name)) {
         const [paramName, rawValue] = edgeCase.inputSuggestion.split('=').map((part) => part.trim());
@@ -240,7 +248,7 @@ export async function evaluateTypeScript(code: string): Promise<EvaluationResult
           sym,
           edgeCase.description,
           args,
-          shouldAccept(edgeCase),
+          expectedBoolean(edgeCase),
           acceptsThrow,
           edgeCase.expectedResult === undefined
             ? undefined

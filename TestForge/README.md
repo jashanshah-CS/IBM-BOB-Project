@@ -22,6 +22,7 @@ TestForge analyses source code and project documentation, discovers edge cases, 
 ```bash
 npm install
 npm run build
+npm run audit
 npm test
 npm run coverage
 ```
@@ -61,6 +62,7 @@ from syntax alone.
 | `npm run typecheck` | Type-check without emitting |
 | `npm run lint` | Lint `src/` and `tests/` |
 | `npm run lint:fix` | Lint and auto-fix |
+| `npm run audit` | Build and run the deterministic evaluator regression matrix |
 | `npm test` | Run all tests once |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run coverage` | Run tests with v8 coverage |
