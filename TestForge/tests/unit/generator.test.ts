@@ -120,4 +120,33 @@ describe('generator — meaningful predicate assertions', () => {
     expect(generated?.source).toContain('expect(validateQuantity(0)).toBe(false)');
     await rm(outDir, { recursive: true, force: true });
   });
+
+  it('uses values inside discovered numeric ranges for valid and decimal cases', async () => {
+    const outDir = join(tmpdir(), 'testforge-range-aware-output');
+    const symbols: SourceSymbol[] = [{
+      name: 'validateAge',
+      kind: 'function',
+      filePath: join(process.cwd(), 'examples', 'ageValidator.ts'),
+      lineStart: 1,
+      lineEnd: 3,
+      params: [{
+        name: 'age',
+        type: 'number',
+        optional: false,
+        numericConstraints: [
+          { operator: '>=', value: 18 },
+          { operator: '<=', value: 100 },
+        ],
+      }],
+      returnType: 'boolean',
+      isAsync: false,
+      isExported: true,
+    }];
+    const edgeCases = discoverEdgeCases(symbols);
+    const [generated] = await generateTests(symbols, edgeCases, outDir, 'unit');
+    expect(generated?.source).toContain('validateAge(59)');
+    expect(generated?.source).toContain('validateAge(59.5)).toBe(true)');
+    expect(generated?.source).not.toContain('validateAge(1)');
+    await rm(outDir, { recursive: true, force: true });
+  });
 });

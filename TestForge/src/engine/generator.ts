@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join, basename, extname, relative, dirname } from 'node:path';
 import type { GeneratedTest, SourceSymbol, EdgeCase, ParameterInfo } from '../types.js';
+import { validNumericValue } from './numericInputs.js';
 
 // ---------------------------------------------------------------------------
 // Test generator — emits real, executable Vitest test files.
@@ -103,7 +104,7 @@ function defaultArgFor(param: ParameterInfo): string {
   if (t === 'unknown' || t === 'any') return '1';
   if (t.includes('string'))  return `'test'`;
   if (t.includes('boolean')) return 'true';
-  if (t.includes('number'))  return '1';
+  if (t.includes('number'))  return String(validNumericValue(param));
   if (t.includes('[]') || t.includes('array')) return '[]';
   if (t.includes('object') || t === 'record') return '{}';
   return 'undefined';

@@ -50,8 +50,10 @@ function parseParamsWithBoundaries(raw: string, source: string): ParameterInfo[]
         value: Number(match[2]),
       }))
       .filter((constraint) => Number.isFinite(constraint.value));
+    const integerPattern = new RegExp(`\\bNumber\\.isInteger\\s*\\(\\s*${name}\\s*\\)`);
     return {
       ...param,
+      integerRequired: integerPattern.test(source),
       numericConstraints: constraints,
     };
   });

@@ -15,6 +15,7 @@ export interface ParameterInfo {
   type: string;
   optional: boolean;
   defaultValue?: string;
+  integerRequired?: boolean;
   numericConstraints?: Array<{
     operator: '<' | '<=' | '>' | '>=';
     value: number;

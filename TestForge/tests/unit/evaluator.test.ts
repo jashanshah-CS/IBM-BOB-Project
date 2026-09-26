@@ -11,12 +11,23 @@ export function validateQuantity(quantity: number): boolean {
   return Number.isInteger(quantity) && (quantity >= 1 || quantity <= 100);
 }`;
 
+const CORRECT_AGE = `
+export function validateAge(age: number): boolean {
+  return Number.isFinite(age) && age >= 18 && age <= 100;
+}`;
+
 describe('evaluateTypeScript', () => {
   it('verifies a correct bounded predicate', async () => {
     const result = await evaluateTypeScript(CORRECT);
     expect(result.status).toBe('verified');
     expect(result.failed).toBe(0);
     expect(result.passed).toBeGreaterThan(10);
+  });
+
+  it('chooses valid normal and decimal values inside an age range', async () => {
+    const result = await evaluateTypeScript(CORRECT_AGE);
+    expect(result.status).toBe('verified');
+    expect(result.failed).toBe(0);
   });
 
   it('exposes a range OR bug and proposes a correction', async () => {

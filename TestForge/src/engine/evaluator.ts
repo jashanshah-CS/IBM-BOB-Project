@@ -8,6 +8,7 @@ import { analyseFile } from './analyser.js';
 import { discoverEdgeCases } from './edgeCases.js';
 import { estimateComplexity, type ComplexityEstimate } from './complexity.js';
 import type { EdgeCase, ParameterInfo, SourceSymbol } from '../types.js';
+import { validNumericValue } from './numericInputs.js';
 
 export interface DynamicTestResult {
   name: string;
@@ -45,7 +46,7 @@ function defaultValue(param: ParameterInfo): unknown {
   const type = param.type.toLowerCase();
   if (type.includes('string')) return 'test';
   if (type.includes('boolean')) return true;
-  if (type.includes('number')) return 1;
+  if (type.includes('number')) return validNumericValue(param);
   if (type.includes('[]') || type.includes('array')) return [];
   if (type.includes('object') || type === 'record') return {};
   return 1;

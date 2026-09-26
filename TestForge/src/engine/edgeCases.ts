@@ -1,4 +1,5 @@
 import type { EdgeCase, SourceSymbol, DocSection } from '../types.js';
+import { validNumericValue } from './numericInputs.js';
 
 // ---------------------------------------------------------------------------
 // Heuristic edge-case discovery.
@@ -72,6 +73,7 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
 
     // Number-specific
     if (t.includes('number')) {
+      const decimalValue = validNumericValue(param, true);
       cases.push(
         {
           symbolName: sym.name,
@@ -119,8 +121,10 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
           symbolName: sym.name,
           category: 'type-coercion',
           description: `Decimal value for "${param.name}"`,
-          inputSuggestion: `${param.name} = 1.5`,
-          expectedBehaviour: 'Should accept valid numeric input unless an integer is explicitly required',
+          inputSuggestion: `${param.name} = ${decimalValue}`,
+          expectedBehaviour: param.integerRequired
+            ? 'Should reject invalid numeric input when an integer is explicitly required'
+            : 'Should accept valid numeric input within the discovered range',
         },
       );
 
