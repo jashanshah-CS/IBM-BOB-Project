@@ -120,7 +120,7 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
           category: 'type-coercion',
           description: `Decimal value for "${param.name}"`,
           inputSuggestion: `${param.name} = 1.5`,
-          expectedBehaviour: 'Should reject invalid numeric input when an integer is required',
+          expectedBehaviour: 'Should accept valid numeric input unless an integer is explicitly required',
         },
       );
 

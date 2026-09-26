@@ -49,6 +49,15 @@ describe('discoverEdgeCases', () => {
     expect(categories).toContain('overflow');
   });
 
+  it('does not assume that every TypeScript number must be an integer', () => {
+    const sym = makeSymbol({
+      params: [{ name: 'amount', type: 'number', optional: false }],
+    });
+    const decimal = discoverEdgeCases([sym])
+      .find((edgeCase) => edgeCase.description.includes('Decimal value'));
+    expect(decimal?.expectedBehaviour).toContain('accept valid numeric input');
+  });
+
   it('generates empty and boundary cases for array params', () => {
     const sym = makeSymbol({
       params: [{ name: 'items', type: 'string[]', optional: false }],

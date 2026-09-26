@@ -1,0 +1,48 @@
+# TestForge integrated dashboard
+
+This branch combines the Streamlit dashboard from `DashboardDisplay` with the TypeScript TestForge engine from `feat/testforge-workflow`.
+
+## Architecture
+
+```text
+Streamlit dashboard (port 8501)
+             |
+             | JSON over HTTP
+             v
+Express/TestForge API (port 3000)
+             |
+             +-- TypeScript analysis
+             +-- edge-case discovery
+             +-- dynamic test execution
+             +-- Vitest generation
+             +-- complexity estimates
+             `-- supported defect suggestions
+```
+
+The dashboard does not duplicate the analysis logic in Python. `Dashboard/backend_client.py` sends code to the TypeScript endpoints and renders their responses.
+
+## Run both services
+
+From the repository root in PowerShell:
+
+```powershell
+.\start-integrated.ps1
+```
+
+Or run them separately:
+
+```powershell
+cd TestForge
+npm install
+npm run dev
+```
+
+```powershell
+cd Dashboard
+python -m venv venv
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+.\venv\Scripts\python.exe -m streamlit run app.py
+```
+
+Open <http://127.0.0.1:8501>. The sidebar shows whether the TypeScript API is connected. Set `TESTFORGE_API_URL` if the backend uses another address.
+

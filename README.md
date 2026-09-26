@@ -4,6 +4,8 @@ TestForge is an intelligent multi-layer TypeScript test generator built for the 
 
 The application is in [`TestForge/`](TestForge/).
 
+This integration branch also includes a Streamlit interface in [`Dashboard/`](Dashboard/). It calls the TypeScript backend over HTTP, so the dashboard and browser playground use the same analysis, generated tests, complexity estimates, and correction logic. See [`DashboardREADME.MD`](DashboardREADME.MD) for startup instructions.
+
 ## The problem
 
 Developers spend significant time writing repetitive tests and can miss boundary values, invalid inputs, integration behaviour, and documented constraints. Basic generated tests may also look complete while using placeholder assertions that never exercise the source code.
@@ -71,6 +73,8 @@ Open:
 - Playground: <http://localhost:3000/playground>
 - Project home: <http://localhost:3000/>
 - Health check: <http://localhost:3000/health>
+
+To start the TypeScript backend and integrated Streamlit dashboard together on Windows, run `./start-integrated.ps1` from the repository root, then open <http://127.0.0.1:8501>.
 
 ## Playground guide
 
