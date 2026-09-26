@@ -9,10 +9,10 @@ import type { SourceSymbol, ParameterInfo } from '../types.js';
 // ---------------------------------------------------------------------------
 
 const FUNCTION_RE =
-  /^export\s+(async\s+)?function\s+(\w+)\s*\(([^)]*)\)\s*(?::\s*([^{]+?))?\s*\{/gm;
+  /^[ \t]*export\s+(async\s+)?function\s+(\w+)\s*\(([^)]*)\)\s*(?::\s*([^{]+?))?\s*\{/gm;
 const ARROW_EXPORT_RE =
-  /^export\s+(?:const|let)\s+(\w+)\s*=\s*(async\s+)?\(([^)]*)\)\s*(?::\s*([^=>{]+?))?\s*=>/gm;
-const CLASS_RE = /^export\s+(?:abstract\s+)?class\s+(\w+)/gm;
+  /^[ \t]*export\s+(?:const|let)\s+(\w+)\s*=\s*(async\s+)?\(([^)]*)\)\s*(?::\s*([^=>{]+?))?\s*=>/gm;
+const CLASS_RE = /^[ \t]*export\s+(?:abstract\s+)?class\s+(\w+)/gm;
 const METHOD_RE =
   /^\s+(?:async\s+)?(public\s+|private\s+|protected\s+)?(?:static\s+)?(\w+)\s*\(([^)]*)\)\s*(?::\s*([^{]+?))?\s*\{/gm;
 
@@ -96,7 +96,11 @@ function scopeForMatch(source: string, index: number, header: string): string {
 }
 
 function parseParamsWithBoundaries(raw: string, source: string): ParameterInfo[] {
-  return parseParams(raw).map((param) => {
+  const parsedParams = parseParams(raw);
+  const numericParamCount = parsedParams.filter((param) =>
+    /(^|\|)\s*number\s*(\||$)/i.test(param.type),
+  ).length;
+  return parsedParams.map((param) => {
     if (!param.type.toLowerCase().includes('number')) return param;
     const name = escapeRegExp(param.name);
     const pattern = new RegExp(`\\b${name}\\s*(<=|>=|<|>)\\s*(-?\\d+(?:\\.\\d+)?)`, 'g');
@@ -107,9 +111,14 @@ function parseParamsWithBoundaries(raw: string, source: string): ParameterInfo[]
       }))
       .filter((constraint) => Number.isFinite(constraint.value));
     const integerPattern = new RegExp(`\\bNumber\\.isInteger\\s*\\(\\s*${name}\\s*\\)`);
+    const integerRequirementInComment = source.split(/\r?\n/).some((line) =>
+      /\b(?:decimals?|fractional|whole[- ]?numbers?|integers?)\b/i.test(line) &&
+      /\b(?:invalid|reject|not allowed|incorrect|bug|must)\b/i.test(line) &&
+      (numericParamCount === 1 || new RegExp(`\\b${name}\\b`, 'i').test(line)),
+    );
     return {
       ...param,
-      integerRequired: integerPattern.test(source),
+      integerRequired: integerPattern.test(source) || integerRequirementInComment,
       numericConstraints: constraints,
     };
   });

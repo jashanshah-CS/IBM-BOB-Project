@@ -1,5 +1,11 @@
 import { evaluateTypeScript } from '../dist/engine/evaluator.js';
 import { evaluateTypeScriptIsolated } from '../dist/engine/isolatedEvaluator.js';
+import { analyseFile } from '../dist/engine/analyser.js';
+import { discoverEdgeCases } from '../dist/engine/edgeCases.js';
+import { generateTests } from '../dist/engine/generator.js';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const cases = [
   {
@@ -22,6 +28,14 @@ const cases = [
     expected: 'verified',
     code: `export function validateQuantity(quantity: number): boolean {
       return Number.isInteger(quantity) && quantity >= 1 && quantity <= 100;
+    }`,
+  },
+  {
+    name: 'integer requirement documented in source comment',
+    expected: 'failing',
+    code: `export function validateStock(stock: number): boolean {
+      // Incorrect: decimal stock values must be rejected.
+      return stock >= 0 && stock <= 500;
     }`,
   },
   {
@@ -192,5 +206,40 @@ const timeoutPassed = timeoutResult.status === 'failing' &&
   timeoutResult.tests.some((test) => test.name === 'Execution safety timeout');
 console.log(`${timeoutPassed ? 'PASS' : 'FAIL'} | infinite-loop isolation | ${timeoutResult.status}`);
 if (!timeoutPassed) failures++;
+
+const generatorDir = await mkdtemp(join(tmpdir(), 'testforge-generator-audit-'));
+try {
+  const sourcePath = join(generatorDir, 'source.ts');
+  const generatedDir = join(generatorDir, 'generated');
+  const generatorSource = `export function validatePrice(price: number): boolean {
+    return Number.isFinite(price) && price >= 0 && price <= 10000;
+  }
+  export function validateStock(stock: number): boolean {
+    // Incorrect: decimals, NaN and Infinity may pass.
+    return Number.isFinite(stock) && stock >= 0 && stock <= 500;
+  }`;
+  await writeFile(sourcePath, generatorSource, 'utf8');
+  const symbols = await analyseFile(sourcePath);
+  const generated = await generateTests(
+    symbols,
+    discoverEdgeCases(symbols),
+    generatedDir,
+    'unit',
+  );
+  const testSource = generated[0]?.source ?? '';
+  const generatorChecks = [
+    ['out-of-range maximum has an exact rejection assertion',
+      'validatePrice(Number.MAX_SAFE_INTEGER)).toBe(false)'],
+    ['comment-documented decimal rule has an exact rejection assertion',
+      'validateStock(250.5)).toBe(false)'],
+  ];
+  for (const [name, expectedSource] of generatorChecks) {
+    const passed = testSource.includes(expectedSource);
+    console.log(`${passed ? 'PASS' : 'FAIL'} | generated source | ${name}`);
+    if (!passed) failures++;
+  }
+} finally {
+  await rm(generatorDir, { recursive: true, force: true });
+}
 
 if (failures > 0) process.exitCode = 1;

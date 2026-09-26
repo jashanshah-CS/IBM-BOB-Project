@@ -78,27 +78,45 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
     // Number-specific
     if (isNumber && !isCollection) {
       const decimalValue = validNumericValue(param, true);
+      const accepts = (value: number) => (param.numericConstraints ?? []).every((constraint) => {
+        if (constraint.operator === '>=') return value >= constraint.value;
+        if (constraint.operator === '>') return value > constraint.value;
+        if (constraint.operator === '<=') return value <= constraint.value;
+        return value < constraint.value;
+      });
+      const constrainedExpectation = (value: number, fallback: string) =>
+        (param.numericConstraints?.length ?? 0) > 0
+          ? accepts(value)
+            ? 'Should accept valid numeric input within the discovered range'
+            : 'Should reject input outside a documented boundary'
+          : fallback;
       cases.push(
         {
           symbolName: sym.name,
           category: 'boundary',
           description: `Zero value for "${param.name}"`,
           inputSuggestion: `${param.name} = 0`,
-          expectedBehaviour: 'Should handle zero without division errors',
+          expectedBehaviour: constrainedExpectation(0, 'Should handle zero without division errors'),
         },
         {
           symbolName: sym.name,
           category: 'overflow',
           description: `Number.MAX_SAFE_INTEGER for "${param.name}"`,
           inputSuggestion: `${param.name} = Number.MAX_SAFE_INTEGER`,
-          expectedBehaviour: 'Should not overflow or produce NaN',
+          expectedBehaviour: constrainedExpectation(
+            Number.MAX_SAFE_INTEGER,
+            'Should not overflow or produce NaN',
+          ),
         },
         {
           symbolName: sym.name,
           category: 'boundary',
           description: `Negative value for "${param.name}"`,
           inputSuggestion: `${param.name} = -1`,
-          expectedBehaviour: 'Should reject or handle negative inputs per spec',
+          expectedBehaviour: constrainedExpectation(
+            -1,
+            'Should reject or handle negative inputs per spec',
+          ),
         },
         {
           symbolName: sym.name,
