@@ -44,10 +44,15 @@ export interface EvaluationResult {
 
 function defaultValue(param: ParameterInfo): unknown {
   const type = param.type.toLowerCase();
+  if (type.includes('[]') || type.includes('array')) {
+    if (type.includes('number')) return [1];
+    if (type.includes('string')) return ['test'];
+    if (type.includes('boolean')) return [true];
+    return [{}];
+  }
   if (type.includes('string')) return 'test';
   if (type.includes('boolean')) return true;
   if (type.includes('number')) return validNumericValue(param);
-  if (type.includes('[]') || type.includes('array')) return [];
   if (type.includes('object') || type === 'record') return {};
   return 1;
 }
@@ -63,6 +68,14 @@ function suggestedValue(raw: string): unknown {
   if (value === 'Number.MIN_SAFE_INTEGER') return Number.MIN_SAFE_INTEGER;
   if (value === '[]') return [];
   if (value === '{}') return {};
+  if ((value.startsWith('[') && value.endsWith(']')) ||
+      (value.startsWith('{') && value.endsWith('}'))) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
   if (/^".*"$|^'.*'$/.test(value)) return value.slice(1, -1);
   if (/^-?\d+(?:\.\d+)?$/.test(value)) return Number(value);
   return value;
@@ -104,6 +117,7 @@ async function executeCase(
   name: string,
   args: unknown[],
   expectedValid: boolean,
+  acceptsThrow = false,
 ): Promise<DynamicTestResult> {
   try {
     const result = await fn(...args);
@@ -117,8 +131,10 @@ async function executeCase(
   } catch (error) {
     return {
       name,
-      passed: false,
-      expected: assertionFor(sym, undefined, expectedValid).expected,
+      passed: acceptsThrow,
+      expected: acceptsThrow
+        ? 'an explicit rejection or thrown error'
+        : assertionFor(sym, undefined, expectedValid).expected,
       actual: 'threw an error',
       error: error instanceof Error ? error.message : String(error),
     };
@@ -194,7 +210,16 @@ export async function evaluateTypeScript(code: string): Promise<EvaluationResult
         const args = sym.params.map((param) => param.name === paramName
           ? suggestedValue(rawValue)
           : defaultValue(param));
-        tests.push(await executeCase(fn, sym, edgeCase.description, args, shouldAccept(edgeCase)));
+        const acceptsThrow = /throw|error|reject|invalid|required/i
+          .test(edgeCase.expectedBehaviour);
+        tests.push(await executeCase(
+          fn,
+          sym,
+          edgeCase.description,
+          args,
+          shouldAccept(edgeCase),
+          acceptsThrow,
+        ));
       }
     }
 

@@ -66,6 +66,8 @@ describe('discoverEdgeCases', () => {
     const categories = cases.map((c) => c.category);
     expect(categories).toContain('empty');
     expect(categories).toContain('boundary');
+    expect(cases.some((edgeCase) => edgeCase.inputSuggestion === 'items = ["test"]')).toBe(true);
+    expect(cases.some((edgeCase) => edgeCase.inputSuggestion === 'items = 0')).toBe(false);
   });
 
   it('adds an async-error edge case for async symbols', () => {

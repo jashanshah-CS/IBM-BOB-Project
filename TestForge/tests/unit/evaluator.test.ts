@@ -16,6 +16,15 @@ export function validateAge(age: number): boolean {
   return Number.isFinite(age) && age >= 18 && age <= 100;
 }`;
 
+const REMOVE_DUPLICATES = `
+export function removeDuplicates(numbers: number[]): number[] {
+  const uniqueNumbers = new Set<number>();
+  for (const number of numbers) {
+    if (Number.isFinite(number)) uniqueNumbers.add(number);
+  }
+  return Array.from(uniqueNumbers);
+}`;
+
 describe('evaluateTypeScript', () => {
   it('verifies a correct bounded predicate', async () => {
     const result = await evaluateTypeScript(CORRECT);
@@ -28,6 +37,13 @@ describe('evaluateTypeScript', () => {
     const result = await evaluateTypeScript(CORRECT_AGE);
     expect(result.status).toBe('verified');
     expect(result.failed).toBe(0);
+  });
+
+  it('executes generated collection cases with real array values', async () => {
+    const result = await evaluateTypeScript(REMOVE_DUPLICATES);
+    expect(result.status).toBe('verified');
+    expect(result.failed).toBe(0);
+    expect(result.tests.length).toBeGreaterThanOrEqual(5);
   });
 
   it('exposes a range OR bug and proposes a correction', async () => {

@@ -30,6 +30,8 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
 
   for (const param of sym.params) {
     const t = param.type.toLowerCase();
+    const isCollection = t.includes('[]') || t.includes('array') ||
+      t.includes('set') || t.includes('map');
 
     // Nullish inputs
     if (!param.optional) {
@@ -52,7 +54,7 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
     }
 
     // String-specific
-    if (t.includes('string')) {
+    if (t.includes('string') && !isCollection) {
       cases.push(
         {
           symbolName: sym.name,
@@ -72,7 +74,7 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
     }
 
     // Number-specific
-    if (t.includes('number')) {
+    if (t.includes('number') && !isCollection) {
       const decimalValue = validNumericValue(param, true);
       cases.push(
         {
@@ -163,7 +165,10 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
     }
 
     // Array / collection
-    if (t.includes('[]') || t.includes('array') || t.includes('set') || t.includes('map')) {
+    if (isCollection) {
+      const oneItem = t.includes('number') ? '1'
+        : t.includes('string') ? '"test"'
+          : t.includes('boolean') ? 'true' : '{}';
       cases.push(
         {
           symbolName: sym.name,
@@ -176,7 +181,7 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
           symbolName: sym.name,
           category: 'boundary',
           description: `Single-element collection for "${param.name}"`,
-          inputSuggestion: `${param.name} = [oneItem]`,
+          inputSuggestion: `${param.name} = [${oneItem}]`,
           expectedBehaviour: 'Should handle single-element collections correctly',
         },
       );

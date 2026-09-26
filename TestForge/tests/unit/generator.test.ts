@@ -149,4 +149,26 @@ describe('generator — meaningful predicate assertions', () => {
     expect(generated?.source).not.toContain('validateAge(1)');
     await rm(outDir, { recursive: true, force: true });
   });
+
+  it('generates concrete, runnable inputs for number arrays', async () => {
+    const outDir = join(tmpdir(), 'testforge-array-output');
+    const symbols: SourceSymbol[] = [{
+      name: 'removeDuplicates',
+      kind: 'function',
+      filePath: join(process.cwd(), 'examples', 'removeDuplicates.ts'),
+      lineStart: 1,
+      lineEnd: 5,
+      params: [{ name: 'numbers', type: 'number[]', optional: false }],
+      returnType: 'number[]',
+      isAsync: false,
+      isExported: true,
+    }];
+    const edgeCases = discoverEdgeCases(symbols);
+    const [generated] = await generateTests(symbols, edgeCases, outDir, 'unit');
+    expect(generated?.source).toContain('removeDuplicates([1])');
+    expect(generated?.source).toContain('removeDuplicates([])');
+    expect(generated?.source).not.toMatch(/removeDuplicates\((?:0|1\.5|NaN|Infinity)\)/);
+    expect(generated?.source).not.toContain('oneItem');
+    await rm(outDir, { recursive: true, force: true });
+  });
 });

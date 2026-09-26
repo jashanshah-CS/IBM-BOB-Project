@@ -102,10 +102,15 @@ function relativeImportPath(sourceFilePath: string, testFilePath: string): strin
 function defaultArgFor(param: ParameterInfo): string {
   const t = param.type.toLowerCase();
   if (t === 'unknown' || t === 'any') return '1';
+  if (t.includes('[]') || t.includes('array')) {
+    if (t.includes('number')) return '[1]';
+    if (t.includes('string')) return "['test']";
+    if (t.includes('boolean')) return '[true]';
+    return '[{}]';
+  }
   if (t.includes('string'))  return `'test'`;
   if (t.includes('boolean')) return 'true';
   if (t.includes('number'))  return String(validNumericValue(param));
-  if (t.includes('[]') || t.includes('array')) return '[]';
   if (t.includes('object') || t === 'record') return '{}';
   return 'undefined';
 }
@@ -193,16 +198,8 @@ function renderEdgeCaseBody(
   const returnsNull   = /null|undefined/i.test(behaviour) && !throwsOrError;
 
   if (cat === 'nullish') {
-    if (throwsOrError && sym.returnType.toLowerCase().includes('void')) {
+    if (throwsOrError) {
       lines.push(`    expect(() => ${call}).toThrow();`);
-    } else if (throwsOrError) {
-      // For validators that return an object with a `valid` field
-      lines.push(`    const result = ${call};`);
-      lines.push(`    if (typeof result === 'object' && result !== null && 'valid' in result) {`);
-      lines.push(`      expect((result as { valid: boolean }).valid).toBe(false);`);
-      lines.push(`    } else {`);
-      lines.push(`      expect(result == null).toBe(false); // should not silently return null`);
-      lines.push(`    }`);
     } else {
       lines.push(`    const result = ${call};`);
       lines.push(`    expect(result).toBeDefined();`);
