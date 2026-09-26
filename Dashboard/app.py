@@ -37,6 +37,14 @@ def render_edge_cases(edge_cases: list[dict]) -> None:
             st.write(f"**Expected behaviour:** {case['expectedBehaviour']}")
 
 
+def apply_suggested_correction(corrected_code: str) -> None:
+    """Apply a fix before Streamlit recreates the source-code widget."""
+    st.session_state.source_code = corrected_code
+    st.session_state.run_result = None
+    st.session_state.analysis = None
+    st.session_state.generated = None
+
+
 def render_results(result: dict) -> None:
     complexity = result.get("complexity", {})
     tests = result.get("tests", [])
@@ -89,10 +97,11 @@ def render_results(result: dict) -> None:
         else:
             st.warning(f"Line {suggestion['line']}: {suggestion['message']}")
             st.code(suggestion["correctedCode"], language="typescript")
-            if st.button("Apply suggested correction"):
-                st.session_state.source_code = suggestion["correctedCode"]
-                st.session_state.run_result = None
-                st.rerun()
+            st.button(
+                "Apply suggested correction",
+                on_click=apply_suggested_correction,
+                args=(suggestion["correctedCode"],),
+            )
 
 
 st.title("🧪 TestForge Dashboard")
