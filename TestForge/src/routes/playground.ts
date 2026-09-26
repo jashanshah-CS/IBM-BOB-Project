@@ -9,6 +9,16 @@ import { generateTests } from '../engine/generator.js';
 import { evaluateTypeScriptIsolated } from '../engine/isolatedEvaluator.js';
 
 export const playgroundRouter = Router();
+const MAX_CODE_WORDS = 500;
+
+function codeInputError(code: string | undefined): string | undefined {
+  if (!code || code.trim() === '') return 'No code provided';
+  const wordCount = code.trim().split(/\s+/).length;
+  if (wordCount > MAX_CODE_WORDS) {
+    return `Code exceeds the ${MAX_CODE_WORDS}-word limit (${wordCount} words provided).`;
+  }
+  return undefined;
+}
 
 // ---------------------------------------------------------------------------
 // GET /playground — browser UI
@@ -26,8 +36,9 @@ playgroundRouter.get('/', (_req, res) => {
 playgroundRouter.post('/analyse', async (req, res, next) => {
   try {
     const { code } = req.body as { code?: string };
-    if (!code || code.trim() === '') {
-      res.status(400).json({ error: 'No code provided' });
+    const inputError = codeInputError(code);
+    if (inputError || !code) {
+      res.status(inputError?.startsWith('Code exceeds') ? 413 : 400).json({ error: inputError });
       return;
     }
     const tmpDir = join(tmpdir(), 'testforge-playground');
@@ -53,8 +64,9 @@ playgroundRouter.post('/analyse', async (req, res, next) => {
 playgroundRouter.post('/generate', async (req, res, next) => {
   try {
     const { code } = req.body as { code?: string };
-    if (!code || code.trim() === '') {
-      res.status(400).json({ error: 'No code provided' });
+    const inputError = codeInputError(code);
+    if (inputError || !code) {
+      res.status(inputError?.startsWith('Code exceeds') ? 413 : 400).json({ error: inputError });
       return;
     }
     const tmpDir = join(tmpdir(), 'testforge-playground');
@@ -97,8 +109,9 @@ playgroundRouter.post('/generate', async (req, res, next) => {
 playgroundRouter.post('/run', async (req, res, next) => {
   try {
     const { code } = req.body as { code?: string };
-    if (!code || code.trim() === '') {
-      res.status(400).json({ error: 'No code provided' });
+    const inputError = codeInputError(code);
+    if (inputError || !code) {
+      res.status(inputError?.startsWith('Code exceeds') ? 413 : 400).json({ error: inputError });
       return;
     }
     res.json(await evaluateTypeScriptIsolated(code));

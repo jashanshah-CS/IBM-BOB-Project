@@ -7,6 +7,11 @@ from backend_client import TestForgeClient, TestForgeError
 
 st.set_page_config(page_title="TestForge Dashboard", page_icon="🧪", layout="wide")
 DEFAULT_API_URL = os.getenv("TESTFORGE_API_URL", "http://127.0.0.1:3000")
+MAX_CODE_WORDS = 500
+
+
+def count_words(value: str) -> int:
+    return len(value.split())
 
 
 @st.cache_resource
@@ -133,11 +138,24 @@ st.subheader("TypeScript source")
 source_code = st.text_area(
     "Paste an exported TypeScript function", key="source_code", height=250
 )
+word_count = count_words(source_code)
+over_limit = word_count > MAX_CODE_WORDS
+st.caption(f"{word_count} / {MAX_CODE_WORDS} words")
+if over_limit:
+    st.error(
+        f"Code is {word_count - MAX_CODE_WORDS} words over the limit. "
+        f"Shorten it to {MAX_CODE_WORDS} words before running TestForge."
+    )
 
 analyse_col, run_col, generate_col = st.columns(3)
-analyse = analyse_col.button("🔍 Analyse", use_container_width=True)
-run_tests = run_col.button("▶ Run generated checks", type="primary", use_container_width=True)
-generate = generate_col.button("⚗️ Generate Vitest", use_container_width=True)
+analyse = analyse_col.button("🔍 Analyse", use_container_width=True, disabled=over_limit)
+run_tests = run_col.button(
+    "▶ Run generated checks", type="primary", use_container_width=True,
+    disabled=over_limit,
+)
+generate = generate_col.button(
+    "⚗️ Generate Vitest", use_container_width=True, disabled=over_limit,
+)
 
 try:
     if analyse:
