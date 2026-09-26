@@ -179,6 +179,11 @@ function renderEdgeCaseBody(
   const shouldAccept = /\baccept|\bvalid|\btrue/i.test(behaviour) &&
     !/invalid|reject|outside|not valid/i.test(behaviour);
 
+  if (ec.expectedResult !== undefined) {
+    lines.push(`    expect(${call}).toEqual(${ec.expectedResult});`);
+    return lines;
+  }
+
   // Predicates and validators have an exact, useful contract for rejected
   // inputs. Prefer that over weak "does not throw" assertions.
   if (returnsBoolean(sym)) {

@@ -99,6 +99,15 @@ function display(value: unknown): string {
   }
 }
 
+function equalValues(actual: unknown, expected: unknown): boolean {
+  if (Object.is(actual, expected)) return true;
+  try {
+    return JSON.stringify(actual) === JSON.stringify(expected);
+  } catch {
+    return false;
+  }
+}
+
 function assertionFor(sym: SourceSymbol, result: unknown, expectedValid: boolean) {
   if (sym.returnType.trim().toLowerCase() === 'boolean') {
     return { passed: result === expectedValid, expected: String(expectedValid) };
@@ -118,9 +127,19 @@ async function executeCase(
   args: unknown[],
   expectedValid: boolean,
   acceptsThrow = false,
+  expectedResult?: unknown,
+  hasExpectedResult = false,
 ): Promise<DynamicTestResult> {
   try {
     const result = await fn(...args);
+    if (hasExpectedResult) {
+      return {
+        name,
+        passed: equalValues(result, expectedResult),
+        expected: display(expectedResult),
+        actual: display(result),
+      };
+    }
     const assertion = assertionFor(sym, result, expectedValid);
     return {
       name,
@@ -219,6 +238,11 @@ export async function evaluateTypeScript(code: string): Promise<EvaluationResult
           args,
           shouldAccept(edgeCase),
           acceptsThrow,
+          edgeCase.expectedResult === undefined
+            ? undefined
+            : suggestedValue(edgeCase.expectedResult),
+          Object.prototype.hasOwnProperty.call(edgeCase, 'expectedResult') &&
+            edgeCase.expectedResult !== undefined,
         ));
       }
     }

@@ -169,13 +169,20 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
       const oneItem = t.includes('number') ? '1'
         : t.includes('string') ? '"test"'
           : t.includes('boolean') ? 'true' : '{}';
+      const returnsUndefinedForEmpty = sym.returnType.toLowerCase().includes('undefined');
+      const findsMaximum = t.includes('number') &&
+        /(?:find)?(?:largest|max(?:imum)?)/i.test(sym.name) &&
+        sym.returnType.toLowerCase().includes('number');
       cases.push(
         {
           symbolName: sym.name,
           category: 'empty',
           description: `Empty collection for "${param.name}"`,
           inputSuggestion: `${param.name} = []`,
-          expectedBehaviour: 'Should return a sensible default for empty collections',
+          expectedBehaviour: returnsUndefinedForEmpty
+            ? 'Should return undefined for an empty collection'
+            : 'Should return a sensible default for empty collections',
+          expectedResult: returnsUndefinedForEmpty ? 'undefined' : undefined,
         },
         {
           symbolName: sym.name,
@@ -183,8 +190,29 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
           description: `Single-element collection for "${param.name}"`,
           inputSuggestion: `${param.name} = [${oneItem}]`,
           expectedBehaviour: 'Should handle single-element collections correctly',
+          expectedResult: findsMaximum ? oneItem : undefined,
         },
       );
+      if (findsMaximum) {
+        cases.push(
+          {
+            symbolName: sym.name,
+            category: 'boundary',
+            description: `Largest value occurs in the middle of "${param.name}"`,
+            inputSuggestion: `${param.name} = [1, 10, 5]`,
+            expectedBehaviour: 'Should inspect every array position',
+            expectedResult: '10',
+          },
+          {
+            symbolName: sym.name,
+            category: 'boundary',
+            description: `All values are negative in "${param.name}"`,
+            inputSuggestion: `${param.name} = [-10, -2, -5]`,
+            expectedBehaviour: 'Should return the greatest negative value',
+            expectedResult: '-2',
+          },
+        );
+      }
     }
   }
 

@@ -171,4 +171,29 @@ describe('generator — meaningful predicate assertions', () => {
     expect(generated?.source).not.toContain('oneItem');
     await rm(outDir, { recursive: true, force: true });
   });
+
+  it('generates exact behavioural checks for a largest-value function', async () => {
+    const outDir = join(tmpdir(), 'testforge-largest-output');
+    const symbols: SourceSymbol[] = [{
+      name: 'findLargest',
+      kind: 'function',
+      filePath: join(process.cwd(), 'examples', 'findLargest.ts'),
+      lineStart: 1,
+      lineEnd: 10,
+      params: [{ name: 'numbers', type: 'number[]', optional: false }],
+      returnType: 'number | undefined',
+      isAsync: false,
+      isExported: true,
+    }];
+    const [generated] = await generateTests(
+      symbols,
+      discoverEdgeCases(symbols),
+      outDir,
+      'unit',
+    );
+    expect(generated?.source).toContain('expect(findLargest([])).toEqual(undefined)');
+    expect(generated?.source).toContain('expect(findLargest([1, 10, 5])).toEqual(10)');
+    expect(generated?.source).toContain('expect(findLargest([-10, -2, -5])).toEqual(-2)');
+    await rm(outDir, { recursive: true, force: true });
+  });
 });

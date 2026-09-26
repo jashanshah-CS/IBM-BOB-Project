@@ -35,6 +35,7 @@ export interface EdgeCase {
   description: string;
   inputSuggestion: string;
   expectedBehaviour: string;
+  expectedResult?: string;
 }
 
 export type EdgeCaseCategory =
