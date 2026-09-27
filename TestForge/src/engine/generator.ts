@@ -446,6 +446,7 @@ function pythonImportName(filePath: string): string {
 
 function pythonLiteral(raw: string): string {
   return raw
+    .replace(/(["'][^"']*["'])\.repeat\((\d[\d_]*)\)/g, '$1 * $2')
     .replace(/\bundefined\b/g, 'None')
     .replace(/\bnull\b/g, 'None')
     .replace(/\bNaN\b/g, 'float("nan")')

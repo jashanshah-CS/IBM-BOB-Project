@@ -17,7 +17,7 @@ npm run audit:python
 Latest result:
 
 ```text
-10/10 Python end-to-end scenarios passed
+20/20 Python end-to-end scenarios passed
 ```
 
 In this report, `PASS` means TestForge returned the expected answer. Deliberately incorrect programs are expected to receive the status `failing`.
@@ -36,6 +36,16 @@ In this report, `PASS` means TestForge returned the expected answer. Deliberatel
 | 8 | Function using a module constant | `verified`, `O(1)` | `verified`, 8 passed, 0 failed | Confirms imports and constants remain available when pytest imports submitted code. |
 | 9 | Async predicate | `verified`, `O(1)` | `verified`, 2 passed, 0 failed | Executes coroutines through `asyncio.run` without requiring the pytest-asyncio plugin. |
 | 10 | Nested-loop function | `verified`, `O(n^2)` | `verified`, 4 passed, 0 failed | Confirms Python-specific nested-loop complexity analysis. |
+| 11 | String predicate | `verified`, `O(1)` | `verified`, 4 passed, 0 failed | Checks empty and very long Python strings without emitting JavaScript syntax. |
+| 12 | Optional string with default | `verified`, `O(1)` | `verified`, 3 passed, 0 failed | Confirms optional union annotations and default values are retained. |
+| 13 | Dictionary predicate | `verified`, `O(1)` | `verified`, 2 passed, 0 failed | Confirms dictionary inputs are generated and evaluated safely. |
+| 14 | Sorting function | `verified`, `O(n log n)` | `verified`, 4 passed, 0 failed | Detects Python `sorted` as the dominant operation. |
+| 15 | Linear built-in sum | `verified`, `O(n)` | `verified`, 4 passed, 0 failed | Detects a linear Python built-in operation. |
+| 16 | Three nested loops | `verified`, `O(n^3)` | `verified`, 4 passed, 0 failed | Confirms cubic loop-depth analysis. |
+| 17 | Private-only module | `analysis-error` | `analysis-error` | Confirms private helper functions are not presented as public test targets. |
+| 18 | Broken duplicate removal | `failing` | `failing`, 5 passed, 1 failed | Detects failure to remove `nan` and infinite values. |
+| 19 | Single lower-bound predicate | `verified`, `O(1)` | `verified`, 9 passed, 0 failed | Confirms one-sided numeric constraints do not create a false upper bound. |
+| 20 | Typed multiple parameters | `verified`, `O(1)` | `verified`, 15 passed, 0 failed | Exercises float, integer, Boolean, default, `nan`, and infinity handling together. |
 
 ## Live API comparison
 
@@ -74,6 +84,18 @@ The dashboard client retains three automated tests covering successful requests,
 | Async functions | Generated tests relied on an undeclared pytest plugin and did not await calls correctly. | Tests use the standard-library `asyncio.run` function. |
 | Complexity estimates | Python source was processed by TypeScript syntax heuristics. | A Python-specific estimator now handles loops, nesting, sorting, recursion, branches, and allocations. |
 | Local startup | The backend could launch without knowing which Python executable contained pytest. | The integrated launcher passes `PYTHON_EXE` to the backend. |
+| Python long strings | The shared edge case used JavaScript `.repeat`, which raises `AttributeError` in Python. | Python generation converts the value to string multiplication such as `"a" * 10000`. |
+
+## Suggested corrections
+
+Python automatic correction currently covers two defect patterns with strong evidence:
+
+| Defect | Suggested change | Verification |
+|---|---|---|
+| Bounded predicate uses `or` | Replace the range `or` with `and`. | The corrected source is rerun and returns `verified`. |
+| Maximum search begins with `[2:]` | Change the slice to `[1:]` so the second item is inspected. | The corrected source is rerun and returns `verified`. |
+
+The dashboard displays the explanation, corrected Python source, and an **Apply suggested fix** button for these patterns.
 
 ## Interpretation limits
 

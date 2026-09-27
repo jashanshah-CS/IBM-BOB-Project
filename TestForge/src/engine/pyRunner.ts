@@ -8,7 +8,7 @@ import { discoverEdgeCases } from './edgeCases.js';
 import { generateTests } from './generator.js';
 import { estimatePythonComplexity } from './complexity.js';
 import type { EvaluationResult } from './evaluator.js';
-import type { CodeDiagnostic, DynamicTestResult } from './evaluator.js';
+import type { CodeDiagnostic, CodeSuggestion, DynamicTestResult } from './evaluator.js';
 
 // ---------------------------------------------------------------------------
 // Run pytest against user-supplied Python source, returning structured results
@@ -16,6 +16,35 @@ import type { CodeDiagnostic, DynamicTestResult } from './evaluator.js';
 // ---------------------------------------------------------------------------
 
 const DEFAULT_TIMEOUT_MS = 15_000;
+
+function pythonSuggestion(code: string): CodeSuggestion | undefined {
+  const lowerFirst = /(\b[A-Za-z_]\w*)\s*(>=|>)\s*(-?\d+(?:\.\d+)?)\s+or\s+\1\s*(<=|<)\s*(-?\d+(?:\.\d+)?)/;
+  const upperFirst = /(\b[A-Za-z_]\w*)\s*(<=|<)\s*(-?\d+(?:\.\d+)?)\s+or\s+\1\s*(>=|>)\s*(-?\d+(?:\.\d+)?)/;
+  const rangeMatch = lowerFirst.exec(code) ?? upperFirst.exec(code);
+  if (rangeMatch?.index !== undefined) {
+    const corrected = rangeMatch[0].replace(/\s+or\s+/, ' and ');
+    return {
+      line: code.slice(0, rangeMatch.index).split('\n').length,
+      message: 'This range uses or, so values outside one boundary can still pass the other condition. Use and to require both boundaries.',
+      correctedCode: code.slice(0, rangeMatch.index) + corrected +
+        code.slice(rangeMatch.index + rangeMatch[0].length),
+    };
+  }
+
+  if (/(?:find_?)?(?:largest|max(?:imum)?)/i.test(code)) {
+    const skippedItem = /\b([A-Za-z_]\w*)\[2:\]/.exec(code);
+    if (skippedItem?.index !== undefined) {
+      const corrected = `${skippedItem[1]}[1:]`;
+      return {
+        line: code.slice(0, skippedItem.index).split('\n').length,
+        message: 'The scan starts at index 2 and skips the second element. Start the slice at index 1 so every remaining value is checked.',
+        correctedCode: code.slice(0, skippedItem.index) + corrected +
+          code.slice(skippedItem.index + skippedItem[0].length),
+      };
+    }
+  }
+  return undefined;
+}
 
 /** Resolve the `python` executable — prefer the venv used by the Dashboard. */
 function pythonExe(): string {
@@ -287,6 +316,7 @@ export async function evaluatePython(
       passed,
       failed,
       complexity,
+      suggestion: failed > 0 ? pythonSuggestion(code) : undefined,
     };
   } finally {
     await rm(runDir, { recursive: true, force: true });
