@@ -1,6 +1,6 @@
 # TestForge
 
-TestForge is an intelligent multi-layer TypeScript test generator built for the **IBM Bob 2.0 Hackathon**. It takes developers from raw source code to edge-case tests, executable results, defect suggestions, and complexity estimates with less manual effort.
+TestForge is an intelligent multi-layer TypeScript and Python test generator built for the **IBM Bob 2.0 Hackathon**. It takes developers from raw source code to edge-case tests, executable results, defect suggestions, and complexity estimates with less manual effort.
 
 ## IBM Bob usage statement
 
@@ -21,35 +21,36 @@ See the language-specific verification reports:
 - [`TypeScript-Test-Cases.md`](TypeScript-Test-Cases.md) for the TypeScript regression matrix, observed defects, and corrected examples.
 - [`Python-Test-Cases.md`](Python-Test-Cases.md) for Python analysis, pytest generation, execution, diagnostics, and complexity scenarios.
 
-This integration branch also includes a Streamlit interface in [`Dashboard/`](Dashboard/). It calls the TypeScript backend over HTTP, so the dashboard and browser playground use the same analysis, generated tests, complexity estimates, and correction logic. See [`DashboardREADME.MD`](DashboardREADME.MD) for startup instructions.
+The final prototype includes a Streamlit interface in [`Dashboard/`](Dashboard/). It calls the Express backend over HTTP, so TypeScript and Python inputs use the same analysis, generated tests, complexity estimates, and correction workflow. See [`DashboardREADME.MD`](DashboardREADME.MD) for startup instructions.
 
 ## Long description - problem and solution
 
 Developers often spend considerable time writing repetitive tests, yet important cases such as null values, invalid types, numeric boundaries, empty collections, and incorrect conditions can still be missed. Basic AI test generators may produce shallow tests or placeholder assertions that look complete without exercising the submitted code. This creates extra debugging work and allows defects to reach later stages of development.
 
-TestForge is an intelligent multi layer testing assistant for TypeScript developers, students, hackathon teams, and small engineering teams. A user pastes an exported TypeScript function into the Streamlit dashboard and selects **Analyse** or **Run generated checks**. TestForge extracts the function and its parameters, builds an edge case inventory, executes derived checks, and presents the expected value, actual value, and pass or fail result for each case. Users can also generate and download a portable Vitest test suite.
+TestForge is an intelligent multi layer testing assistant for TypeScript and Python developers, students, hackathon teams, and small engineering teams. A user pastes an exported TypeScript function or a public Python function into the Streamlit dashboard and selects **Analyse** or **Run generated checks**. TestForge extracts the function and its parameters, builds an edge case inventory, executes derived checks, and presents the expected value, actual value, and pass or fail result for each case. Users can also download a portable Vitest or pytest suite.
 
-The application identifies TypeScript syntax problems and estimates time complexity, space complexity, cyclomatic complexity, maintainability risk, and analysis confidence. When it recognises a supported defect, such as an incorrect `||` operator in a bounded range check, it explains the issue and proposes corrected code that the user can apply and test again.
+The application identifies TypeScript and Python syntax problems and estimates time complexity, space complexity, cyclomatic complexity, maintainability risk, and analysis confidence. When it recognises a supported defect, such as an incorrect `||`/`or` operator in a bounded range check, it explains the issue and proposes corrected code that the user can apply and test again.
 
 TestForge is distinctive because it combines code analysis, edge case discovery, executable test generation, dynamic verification, diagnostics, supported corrections, and complexity evidence in one accessible workflow. Instead of returning test code that users must trust without evidence, it demonstrates which generated checks actually pass and where the implementation may be defective. This reduces manual effort while helping users understand and improve their code.
 
 ## Features
 
 - **TypeScript analysis** for exported functions, parameters, return types, classes, methods, and source locations.
+- **Python analysis** for public typed functions, optional values, common collections, imports, constants, and asynchronous functions.
 - **Document understanding** for Markdown API specifications, user stories, and validation rules.
 - **Dynamic edge case discovery** for null, undefined, zero, negative and decimal values, safe-integer limits, infinities, `NaN`, empty values, and boundaries inferred from comparisons.
-- **Executable Vitest generation** with derived assertions instead of placeholder tests such as `expect(true).toBe(true)`.
+- **Executable Vitest and pytest generation** with derived assertions instead of placeholder tests.
 - **In-browser execution** showing each expected value, actual value, and pass/fail result.
-- **Syntax diagnostics** that identify invalid TypeScript and highlight the relevant line.
-- **Supported defect correction**, including impossible range checks written with `||` instead of `&&`.
+- **Syntax diagnostics** that identify invalid TypeScript or Python and highlight the relevant line.
+- **Supported defect correction**, including impossible range checks and skipped values in maximum searches.
 - **Complexity analysis** covering estimated time and space complexity, cyclomatic complexity, maintainability risk, confidence, and evidence.
-- **Downloadable output** as a portable `source.ts` and `source.test.ts` pair.
+- **Downloadable output** as a portable TypeScript/Vitest or Python/pytest source-and-test pair.
 - **Unit and integration infrastructure** using Express, Vitest, Supertest, TypeScript, Zod, and v8 coverage.
 
 ## Workflow
 
 ```text
-TypeScript source + project documentation
+TypeScript or Python source + project documentation
                   |
                   v
         Source and document analysis
@@ -60,7 +61,7 @@ TypeScript source + project documentation
           +-------+--------+
           |                |
           v                v
-   Vitest generation   Complexity analysis
+ Vitest/pytest tests   Complexity analysis
           |
           v
    Dynamic test execution
@@ -73,7 +74,7 @@ The project implements the hackathon's multi-agent concept:
 
 1. A **Document Understanding** stage extracts constraints from API specifications, user stories, and validation documentation.
 2. An **Edge-Case Finder** examines signatures and conditions for adversarial and boundary inputs.
-3. A **Unit Test Creator** produces focused Vitest checks.
+3. A **Unit Test Creator** produces focused Vitest or pytest checks.
 4. An **Integration Test Creator** covers HTTP and multi-step behaviour.
 5. The runner executes the suite and presents evidence for developers to inspect.
 
@@ -88,20 +89,20 @@ npm run build
 npm test
 npm run dev
 ```
-To start the TypeScript backend and integrated Streamlit dashboard together on Windows, run `./start-integrated.ps1` from the repository root.
+To start the Express backend and integrated Streamlit dashboard together on Windows, run `./start-integrated.ps1` from the repository root. The launcher creates a Python environment, installs pytest and passes its interpreter to the backend.
 
 ## Playground guide
 
-1. Paste an exported TypeScript function into the editor.
+1. Paste an exported TypeScript function or public Python function into the editor.
 2. Select **Analyse** to extract symbols and build the edge-case inventory. Analysis also starts the derived checks.
 3. Open **Test Results** to inspect every expected and actual value.
 4. Open **Complexity** to review time, space, cyclomatic, maintainability, confidence, and evidence.
 5. If a supported defect is detected, inspect the highlighted line and **Suggested Fix**.
 6. Apply the correction and run the tests again.
-7. Select **Generate Tests** to produce reusable Vitest code.
-8. Download both files into the same directory and run them with Vitest.
+7. Select **Generate Tests** to produce reusable Vitest or pytest code.
+8. Download both files into the same directory and run them with the matching test runner.
 
-Generated tests import `./source.js`. With NodeNext TypeScript configuration, Vitest resolves it to `source.ts`.
+TypeScript tests import `./source.js`; with NodeNext configuration, Vitest resolves it to `source.ts`. Python tests import `source.py` and run with pytest.
 
 ## Example
 
@@ -134,6 +135,8 @@ Run commands inside `TestForge/`:
 | `npm run typecheck` | Type-check source and tests |
 | `npm run lint` | Lint source and test files |
 | `npm run lint:fix` | Apply supported ESLint fixes |
+| `npm run audit` | Run the 20-scenario TypeScript regression audit |
+| `npm run audit:python` | Run the 20-scenario Python regression audit |
 
 ## API
 
@@ -141,7 +144,7 @@ Run commands inside `TestForge/`:
 |---|---|---|
 | `GET` | `/health` | Check service health |
 | `GET` | `/playground` | Open the browser playground |
-| `POST` | `/playground/analyse` | Analyse pasted TypeScript and derive edge cases |
+| `POST` | `/playground/analyse` | Detect the language, analyse pasted code and derive edge cases |
 | `POST` | `/playground/generate` | Generate downloadable source and test files |
 | `POST` | `/playground/run` | Run derived checks and return complexity and fix information |
 | `POST` | `/api/analyse` | Analyse project source and documentation |
@@ -158,12 +161,14 @@ IBM-BOB-Project/
 `-- TestForge/
     |-- src/
     |   |-- engine/
-    |   |   |-- analyser.ts       # TypeScript symbol extraction
+    |   |   |-- analyser.ts       # TypeScript/Python analysis dispatch
+    |   |   |-- pyAnalyser.ts     # Python symbol and constraint extraction
     |   |   |-- docParser.ts      # Markdown constraint extraction
     |   |   |-- edgeCases.ts      # Edge-case discovery
-    |   |   |-- generator.ts      # Vitest source generation
+    |   |   |-- generator.ts      # Vitest and pytest source generation
     |   |   |-- evaluator.ts      # Dynamic checks and fix suggestions
     |   |   |-- complexity.ts     # Static complexity estimates
+    |   |   |-- pyRunner.ts       # Isolated pytest execution
     |   |   `-- runner.ts         # Vitest and coverage execution
     |   |-- routes/                # API and playground routes
     |   `-- orders/                # Sample integration-test domain
@@ -185,17 +190,19 @@ npm run build
 npm run typecheck
 npm run lint
 npm test
+npm run audit
+npm run audit:python
 ```
 
-Manual runtime checks cover a correct validator, a defective range validator, invalid TypeScript diagnostics, and nested-loop complexity detection.
+The documented regression matrices cover 20 TypeScript and 20 Python scenarios, including correct and defective inputs, syntax diagnostics, generated assertions, timeout isolation, suggested corrections and complexity estimates.
 
 ## Current scope
 
-The playground focuses on exported TypeScript functions and common primitive inputs. A passing result is evidence for the derived scenarios, not proof that an arbitrary program is defect-free. Automatic correction is limited to patterns that can be changed with reasonable confidence.
+The playground focuses on exported TypeScript functions, public Python functions and supported primitive or collection inputs. A passing result is evidence for the derived scenarios, not proof that an arbitrary program is defect-free. Automatic correction is limited to patterns that can be changed with reasonable confidence.
 
 ## Team contribution workflow
 
-The current implementation branch is `feat/testforge-workflow`. Contributors should use a separate feature branch:
+The integrated prototype branch is `TestForge-Final-Prototype`. Contributors should use a separate feature branch:
 
 ```bash
 git switch main
@@ -212,6 +219,8 @@ Open a pull request, ask another team member to review it, and merge after the c
 ## Technology
 
 - TypeScript with ESM and NodeNext module resolution
+- Python 3 and pytest
+- Streamlit
 - Node.js and Express
 - TypeScript Compiler API
 - Vitest and v8 coverage

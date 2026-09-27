@@ -13,7 +13,8 @@ Stage 1 uses the existing repository source directly. No application code is dup
 | Streamlit interface | [`../../Dashboard/app.py`](../../Dashboard/app.py) |
 | Dashboard API client | [`../../Dashboard/backend_client.py`](../../Dashboard/backend_client.py) |
 | Automated audit | [`../../TestForge/scripts/audit.mjs`](../../TestForge/scripts/audit.mjs) |
-| Detailed cases | [`../../Test-Cases.md`](../../Test-Cases.md) |
+| TypeScript cases | [`../../TypeScript-Test-Cases.md`](../../TypeScript-Test-Cases.md) |
+| Python cases | [`../../Python-Test-Cases.md`](../../Python-Test-Cases.md) |
 
 This mapping keeps one source of truth while allowing the Stage 1 Dockerfile to build the complete service from the repository root.
 

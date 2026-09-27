@@ -51,6 +51,7 @@ Open <http://127.0.0.1:8501>.
 ```powershell
 cd TestForge
 npm run audit
+npm run audit:python
 npm run typecheck
 npm run lint
 ```
@@ -59,6 +60,7 @@ Expected audit summary:
 
 ```text
 Audit result: 20/20 scenarios passed.
+All 20 Python audit cases passed.
 PASS | infinite-loop isolation | failing
 PASS | generated source | out-of-range maximum has an exact rejection assertion
 PASS | generated source | comment-documented decimal rule has an exact rejection assertion

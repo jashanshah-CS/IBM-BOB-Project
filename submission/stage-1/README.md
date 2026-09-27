@@ -2,9 +2,9 @@
 
 ## Stage contract
 
-**Input:** Up to 500 words of exported TypeScript functions.
+**Input:** Up to 500 words containing exported TypeScript functions or public Python functions.
 
-**Output:** Extracted symbols, edge-case inventory, executable checks, pass/fail results, syntax diagnostics, complexity estimates, generated Vitest source and a supported correction when available.
+**Output:** Extracted symbols, edge-case inventory, executable checks, pass/fail results, syntax diagnostics, complexity estimates, generated Vitest or pytest source and a supported correction when available.
 
 **Acceptance criteria:**
 
@@ -24,7 +24,7 @@ Browser
       -> Express/TestForge API (:3000)
           -> analyser + edge-case engine
           -> isolated evaluator
-          -> Vitest generator
+          -> Vitest/pytest generator
           -> complexity estimator
 ```
 
