@@ -1,4 +1,4 @@
-# TestForge Test Cases
+# TestForge TypeScript Test Cases
 
 This document records the automated scenarios used to verify TestForge, what the tool was expected to answer, what it actually answered, and how each result should be interpreted or corrected.
 

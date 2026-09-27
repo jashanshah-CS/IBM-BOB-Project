@@ -144,7 +144,7 @@ except TestForgeError as error:
 st.sidebar.markdown("### Architecture")
 st.sidebar.code("Streamlit → Express API → TestForge engine", language="text")
 st.sidebar.markdown("### Supported languages")
-st.sidebar.markdown("- TypeScript / JavaScript (`.ts`, `.js`)\n- Python (`.py`)")
+st.sidebar.markdown("- TypeScript (`.ts`)\n- Python (`.py`)")
 
 if "source_code" not in st.session_state:
     st.session_state.source_code = """export function validateQuantity(quantity: number): boolean {

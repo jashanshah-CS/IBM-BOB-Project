@@ -14,7 +14,8 @@ if (-not (Test-Path $python)) {
     & $python -m pip install -r (Join-Path $dashboard 'requirements.txt')
 }
 
-Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-Command', 'npx tsx src/index.ts') -WorkingDirectory $backend -WindowStyle Hidden
+$backendCommand = "`$env:PYTHON_EXE='$python'; npx tsx src/index.ts"
+Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-Command', $backendCommand) -WorkingDirectory $backend -WindowStyle Hidden
 Start-Process -FilePath $python -ArgumentList @('-m', 'streamlit', 'run', 'app.py') -WorkingDirectory $dashboard -WindowStyle Hidden
 
 Write-Host 'TestForge backend: http://127.0.0.1:3000'

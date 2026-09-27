@@ -78,8 +78,11 @@ function normaliseType(raw: string | undefined): string {
 
 function normaliseReturn(raw: string | undefined): string {
   if (!raw) return 'unknown';
-  const n = normaliseType(raw.trim());
-  return n === 'unknown' ? 'void' : n;
+  const value = raw.trim();
+  const n = normaliseType(value);
+  if (n === 'unknown') return 'void';
+  if (/^Optional\[|\|\s*None$|^None\s*\|/.test(value)) return `${n} | undefined`;
+  return n;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +142,7 @@ function parsePythonParams(raw: string): ParameterInfo[] {
       type,
       optional,
       defaultValue: rawDefault,
+      integerRequired: rawType !== undefined && /(?:^|\W)int(?:\W|$)/.test(rawType),
     });
   }
 
@@ -187,6 +191,43 @@ function lineOf(source: string, index: number): number {
   return source.slice(0, index).split('\n').length;
 }
 
+function functionBlock(source: string, start: number): { text: string; end: number } {
+  const remaining = source.slice(start);
+  const lines = remaining.split('\n');
+  let offset = 0;
+  for (let index = 1; index < lines.length; index++) {
+    offset += (lines[index - 1]?.length ?? 0) + 1;
+    const line = lines[index] ?? '';
+    if (line.trim() !== '' && !/^[ \t]/.test(line) && !/^@/.test(line)) {
+      return { text: remaining.slice(0, offset), end: start + offset };
+    }
+  }
+  return { text: remaining, end: source.length };
+}
+
+function withNumericConstraints(params: ParameterInfo[], scope: string): ParameterInfo[] {
+  return params.map((param) => {
+    if (!param.type.toLowerCase().includes('number')) return param;
+    const escaped = param.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const constraints: NonNullable<ParameterInfo['numericConstraints']> = [];
+    const add = (operator: '<' | '<=' | '>' | '>=', value: number) => {
+      if (!constraints.some((item) => item.operator === operator && item.value === value)) {
+        constraints.push({ operator, value });
+      }
+    };
+    const variableFirst = new RegExp(`\\b${escaped}\\s*(<=|<|>=|>)\\s*(-?\\d+(?:\\.\\d+)?)`, 'g');
+    for (const match of scope.matchAll(variableFirst)) {
+      add(match[1] as '<' | '<=' | '>' | '>=', Number(match[2]));
+    }
+    const numberFirst = new RegExp(`(-?\\d+(?:\\.\\d+)?)\\s*(<=|<|>=|>)\\s*${escaped}\\b`, 'g');
+    const inverse = { '<=': '>=', '<': '>', '>=': '<=', '>': '<' } as const;
+    for (const match of scope.matchAll(numberFirst)) {
+      add(inverse[match[2] as keyof typeof inverse], Number(match[1]));
+    }
+    return constraints.length > 0 ? { ...param, numericConstraints: constraints } : param;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
@@ -198,13 +239,14 @@ export async function analysePythonFile(filePath: string): Promise<SourceSymbol[
   // Top-level functions
   for (const match of source.matchAll(TOP_FUNC_RE)) {
     const matchIndex = match.index ?? 0;
+    const scope = functionBlock(source, matchIndex);
     symbols.push({
       name: match[2] ?? '',
       kind: 'function',
       filePath,
       lineStart: lineOf(source, matchIndex),
-      lineEnd: lineOf(source, matchIndex + match[0].length),
-      params: parsePythonParams(match[3] ?? ''),
+      lineEnd: lineOf(source, scope.end),
+      params: withNumericConstraints(parsePythonParams(match[3] ?? ''), scope.text),
       returnType: normaliseReturn(match[4]),
       isAsync: Boolean(match[1]),
       isExported: !( (match[2] ?? '').startsWith('_') ),

@@ -1,12 +1,12 @@
 import { spawn } from 'node:child_process';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { analyseFile } from './analyser.js';
 import { discoverEdgeCases } from './edgeCases.js';
 import { generateTests } from './generator.js';
-import { estimateComplexity } from './complexity.js';
+import { estimatePythonComplexity } from './complexity.js';
 import type { EvaluationResult } from './evaluator.js';
 import type { CodeDiagnostic, DynamicTestResult } from './evaluator.js';
 
@@ -30,7 +30,7 @@ function runProcess(
   timeoutMs: number,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve) => {
-    const proc = spawn(cmd, args, { cwd, shell: true });
+    const proc = spawn(cmd, args, { cwd, shell: false });
     let stdout = '';
     let stderr = '';
 
@@ -81,6 +81,16 @@ function parsePytestOutput(
     return { tests, diagnostics };
   }
 
+  const collectionError = /(?:NameError|ModuleNotFoundError|TypeError): (.+)$/m.exec(out);
+  if (/ERROR collecting|errors? during collection/i.test(out) || collectionError) {
+    diagnostics.push({
+      line: lineMatch ? parseInt(lineMatch[1] ?? '1', 10) : 1,
+      column: 1,
+      message: collectionError?.[0] ?? 'Pytest could not collect the generated tests.',
+    });
+    return { tests, diagnostics };
+  }
+
   // The first line of -q output is the dot/F progress line e.g. "...F..F"
   // then FAILURES section with per-test blocks.
   const failureBlocks = new Map<string, string>();
@@ -92,20 +102,18 @@ function parsePytestOutput(
   // Summary line: "X failed, Y passed in Zs"  or  "X passed in Zs"
   const summaryRe = /(\d+) failed.*?(\d+) passed|(\d+) passed/;
   const summaryMatch = summaryRe.exec(out);
-  const totalFailed = parseInt(summaryMatch?.[1] ?? '0', 10);
   const totalPassed = summaryMatch
     ? parseInt(summaryMatch[2] ?? summaryMatch[3] ?? '0', 10)
     : 0;
 
   // FAILED lines: "FAILED path::test_name - message"
-  const failedLineRe = /FAILED [^:]+::(\S+)\s+-\s+(.+)/g;
+  const failedLineRe = /^FAILED .*?::(\S+)(?:\s+-\s+(.+))?$/gm;
   const failedNames = new Map<string, string>();
   for (const m of out.matchAll(failedLineRe)) {
-    failedNames.set(m[1] ?? '', m[2] ?? '');
+    failedNames.set(m[1] ?? '', m[2] ?? 'test failed');
   }
 
   // Collect passed test names from verbose PASSED lines: "path::test_name PASSED"
-  const passedLineRe = /::( test_\S+)\s+PASSED|PASSED\s+\[.*?\]\s*\n.*?::(test_\S+)|(\S+)::(test_\S+)\s+PASSED/g;
   // Simpler: match the test name right before " PASSED"
   const passedNameRe = /::(test_\S+)\s+PASSED/g;
   const passedNames: string[] = [];
@@ -178,7 +186,8 @@ function guardModuleCode(code: string): string {
     const isDef = defStart.test(line);
     const isGuard = alreadyGuarded.test(line);
 
-    if (isDef || isGuard) {
+    const isDependency = /^(?:from\s+\S+\s+import\s+|import\s+|[A-Za-z_]\w*(?::[^=]+)?\s*=|@)/.test(line);
+    if (isDef || isGuard || isDependency) {
       inDef = true;
       keepLines.push(line);
       continue;
@@ -218,7 +227,7 @@ export async function evaluatePython(
     // Analyse the source to get symbols + edge cases
     const symbols = await analyseFile(sourceFile);
     const edgeCases = discoverEdgeCases(symbols);
-    const complexity = estimateComplexity(code);
+    const complexity = estimatePythonComplexity(code);
 
     const callableSymbols = symbols.filter((s) => s.kind !== 'class' && s.isExported);
 
@@ -255,7 +264,10 @@ export async function evaluatePython(
     // Run pytest with -v so we get named PASSED/FAILED lines, not just dots
     const { stdout, stderr } = await runProcess(
       pythonExe(),
-      ['-m', 'pytest', testFile, '--tb=short', '-v', '--no-header', '-p', 'no:cacheprovider'],
+      [
+        '-m', 'pytest', basename(testFile), '--rootdir', runDir,
+        '--tb=short', '-v', '--no-header', '-p', 'no:cacheprovider',
+      ],
       runDir,
       timeoutMs,
     );

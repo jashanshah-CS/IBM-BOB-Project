@@ -4,7 +4,10 @@ TestForge is an intelligent multi-layer TypeScript test generator built for the 
 
 The application is in [`TestForge/`](TestForge/).
 
-See [`Test-Cases.md`](Test-Cases.md) for the complete automated scenario list, observed results, detected defects, and corrected examples.
+See the language-specific verification reports:
+
+- [`TypeScript-Test-Cases.md`](TypeScript-Test-Cases.md) for the TypeScript regression matrix, observed defects, and corrected examples.
+- [`Python-Test-Cases.md`](Python-Test-Cases.md) for Python analysis, pytest generation, execution, diagnostics, and complexity scenarios.
 
 This integration branch also includes a Streamlit interface in [`Dashboard/`](Dashboard/). It calls the TypeScript backend over HTTP, so the dashboard and browser playground use the same analysis, generated tests, complexity estimates, and correction logic. See [`DashboardREADME.MD`](DashboardREADME.MD) for startup instructions.
 

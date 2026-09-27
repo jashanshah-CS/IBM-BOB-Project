@@ -444,6 +444,26 @@ function pythonImportName(filePath: string): string {
   return basename(filePath, '.py');
 }
 
+function pythonLiteral(raw: string): string {
+  return raw
+    .replace(/\bundefined\b/g, 'None')
+    .replace(/\bnull\b/g, 'None')
+    .replace(/\bNaN\b/g, 'float("nan")')
+    .replace(/-\bInfinity\b/g, 'float("-inf")')
+    .replace(/\bInfinity\b/g, 'float("inf")')
+    .replace(/\bNumber\.MAX_SAFE_INTEGER\b/g, '9007199254740991')
+    .replace(/\btrue\b/g, 'True')
+    .replace(/\bfalse\b/g, 'False');
+}
+
+function expectedPyBoolean(behaviour: string): boolean | undefined {
+  if (/\bor handle\b/i.test(behaviour)) return undefined;
+  if (/\baccept|\bvalid|\btrue/i.test(behaviour) &&
+      !/invalid|reject|outside|not valid/i.test(behaviour)) return true;
+  if (/invalid|reject|outside|not valid|\bfalse\b/i.test(behaviour)) return false;
+  return undefined;
+}
+
 function renderPyEdgeCaseBody(sym: SourceSymbol, ec: EdgeCase): string[] {
   const lines: string[] = [];
   const behaviour = ec.expectedBehaviour.toLowerCase();
@@ -455,35 +475,40 @@ function renderPyEdgeCaseBody(sym: SourceSymbol, ec: EdgeCase): string[] {
   const args = sym.params.map((p) => {
     if (p.name === paramName && rawValue !== undefined) {
       // Convert JS literals to Python literals
-      const pyVal = rawValue
-        .replace(/\bundefined\b/g, 'None')
-        .replace(/\bnull\b/g, 'None')
-        .replace(/\bNaN\b/g, 'float("nan")')
-        .replace(/\bInfinity\b/g, 'float("inf")')
-        .replace(/\bNumber\.MAX_SAFE_INTEGER\b/g, '9007199254740991')
-        .replace(/\btrue\b/g, 'True')
-        .replace(/\bfalse\b/g, 'False');
-      return pyVal;
+      return pythonLiteral(rawValue);
     }
     return defaultPyArgFor(p);
   });
-  const call = `${sym.name}(${args.join(', ')})`;
+  const directCall = `${sym.name}(${args.join(', ')})`;
+  const call = sym.isAsync ? `asyncio.run(${directCall})` : directCall;
+
+  if (ec.expectedResult !== undefined) {
+    lines.push(`    assert ${call} == ${pythonLiteral(ec.expectedResult)}`);
+    return lines;
+  }
+
+  const returnsBoolean = /\bboolean\b|\bbool\b/.test(sym.returnType.toLowerCase());
+  const expectedBoolean = returnsBoolean ? expectedPyBoolean(behaviour) : undefined;
+
+  if (returnsBoolean && expectedBoolean === false) {
+    lines.push(`    _assert_false_or_raises(lambda: ${call})`);
+    return lines;
+  }
+
+  if (returnsBoolean) {
+    if (expectedBoolean === true) lines.push(`    assert ${call} is True`);
+    else lines.push(`    assert isinstance(${call}, bool)`);
+    return lines;
+  }
+
+  if (/undefined/i.test(sym.returnType) && throwsOrError) {
+    lines.push(`    _assert_none_or_raises(lambda: ${call})`);
+    return lines;
+  }
 
   if (ec.category === 'async-error' || throwsOrError) {
     lines.push(`    with pytest.raises(Exception):`);
     lines.push(`        ${call}`);
-    return lines;
-  }
-
-  if (ec.expectedResult !== undefined) {
-    lines.push(`    assert ${call} == ${ec.expectedResult}`);
-    return lines;
-  }
-
-  if (/\bboolean\b|\bbool\b/.test(sym.returnType.toLowerCase())) {
-    const expected = /\baccept|\bvalid|\btrue/i.test(behaviour) &&
-                     !/invalid|reject/i.test(behaviour) ? 'True' : 'False';
-    lines.push(`    assert ${call} == ${expected}`);
     return lines;
   }
 
@@ -501,15 +526,29 @@ function renderPythonTestFile(
 
   const lines: string[] = [
     `import pytest`,
+    ...(symbols.some((symbol) => symbol.isAsync) ? [`import asyncio`] : []),
     `from ${moduleName} import ${exportNames}`,
+    ``,
+    `def _assert_false_or_raises(call):`,
+    `    try:`,
+    `        assert call() is False`,
+    `    except (TypeError, ValueError, OverflowError):`,
+    `        pass`,
+    ``,
+    `def _assert_none_or_raises(call):`,
+    `    try:`,
+    `        assert call() is None`,
+    `    except (TypeError, ValueError, OverflowError):`,
+    `        pass`,
     ``,
   ];
 
   for (const sym of symbols) {
     const symEdgeCases = edgeCases.filter((ec) => ec.symbolName === sym.name);
     const normalArgs = pyCallArgs(sym.params);
-    const normalCall = `${sym.name}(${normalArgs})`;
-    const asyncDec = sym.isAsync ? `@pytest.mark.asyncio\n` : '';
+    const directNormalCall = `${sym.name}(${normalArgs})`;
+    const normalCall = sym.isAsync ? `asyncio.run(${directNormalCall})` : directNormalCall;
+    const asyncDec = '';
 
     // Happy-path test
     lines.push(`${asyncDec}def test_${sym.name}_returns_result_for_valid_input():`);
