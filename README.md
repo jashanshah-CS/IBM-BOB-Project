@@ -2,6 +2,10 @@
 
 TestForge is an intelligent multi-layer TypeScript and Python test generator built for the **IBM Bob 2.0 Hackathon**. It takes developers from raw source code to edge-case tests, executable results, defect suggestions, and complexity estimates with less manual effort.
 
+**Live application:** [Open the TestForge dashboard](https://testforge-api.streamlit.app)
+
+**Backend service:** [View the deployed TestForge API](https://testforge-6hko.onrender.com)
+
 ## IBM Bob usage statement
 
 Our team used IBM Bob as the main AI development tool during the initial design and implementation of TestForge. We began by describing the challenge: developers need more than shallow unit tests, because meaningful testing must include boundary cases, invalid inputs, integration behaviour, and documentation constraints. IBM Bob helped us convert this idea into a practical multi layer workflow consisting of source analysis, document understanding, edge case discovery, unit-test generation, integration test generation, test execution, and reporting.
