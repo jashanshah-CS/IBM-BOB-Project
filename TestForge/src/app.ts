@@ -57,13 +57,6 @@ export function createApp(): express.Application {
       <p><a href="/health">View health JSON →</a></p>
     </div>
     <div class="card">
-      <h2>Promo codes</h2>
-      <p><code>SAVE10</code> — 10% off</p>
-      <p><code>HALF50</code> — 50% off</p>
-      <p><code>FREESHIP</code> — 5% off</p>
-      <p><code>EXPIRED20</code> — expired (0%)</p>
-    </div>
-    <div class="card">
       <h2>Playground</h2>
       <p>Paste TypeScript code, analyse symbols, discover edge cases and generate tests — all in the browser.</p>
       <p style="margin-top:8px"><a href="/playground">Open Playground →</a></p>
