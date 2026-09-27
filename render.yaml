@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: testforge-api
+    runtime: node
+    plan: free
+    rootDir: TestForge
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit

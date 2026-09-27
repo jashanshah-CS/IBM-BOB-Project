@@ -66,3 +66,6 @@ PASS | generated source | comment-documented decimal rule has an exact rejection
 
 The word `failing` in the infinite-loop line is the expected product status for deliberately non-terminating submitted code; the audit itself passes.
 
+## Public backend on Render
+
+The repository-root [`../../render.yaml`](../../render.yaml) defines the free Node web service with `TestForge` as its root directory. In Render, choose **New > Blueprint**, connect this repository and select the branch containing `render.yaml`. This prevents Render from running `npm ci` in the repository root.
