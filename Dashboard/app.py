@@ -17,7 +17,7 @@ def count_words(value: str) -> int:
 def detect_language(code: str) -> str:
     """Return 'python' if the code looks like Python, otherwise 'typescript'."""
     stripped = code.strip()
-    if stripped.startswith("def ") or stripped.startswith("async def ") or stripped.startswith("class "):
+    if stripped.startswith(("def ", "async def ", "class ", "from ", "import ")):
         return "python"
     if "\ndef " in stripped or "\nasync def " in stripped:
         return "python"

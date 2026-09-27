@@ -14,7 +14,7 @@ const MAX_CODE_WORDS = 500;
 
 function detectLanguage(code: string): 'python' | 'typescript' {
   const s = code.trim();
-  if (/^(?:async\s+)?def\s+\w|^class\s+\w|\ndef\s+\w|\nasync\s+def\s+\w/.test(s)) return 'python';
+  if (/^(?:from\s+[\w.]+\s+import\s+|import\s+[\w.]|(?:async\s+)?def\s+\w|class\s+\w)|\n(?:async\s+)?def\s+\w/.test(s)) return 'python';
   return 'typescript';
 }
 
