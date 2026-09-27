@@ -129,6 +129,10 @@ def render_results(result: dict) -> None:
 
 st.title("🧪 TestForge Dashboard")
 st.caption("Streamlit interface powered by the TestForge engine — supports TypeScript and Python")
+st.error(
+    "⚠️ Prototype notice: TestForge was built in one day for a hackathon. "
+    "Results may contain errors, so please review generated tests and suggested fixes before using them in production."
+)
 
 api_url = st.sidebar.text_input("Backend URL", value=DEFAULT_API_URL)
 client = get_client(api_url)
