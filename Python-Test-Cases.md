@@ -26,14 +26,14 @@ In this report, `PASS` means TestForge returned the expected answer. Deliberatel
 
 | # | Test case | Expected TestForge answer | Latest result | Purpose and interpretation |
 |---:|---|---|---|---|
-| 1 | Correct bounded integer predicate | `verified`, zero failed checks, `O(1)` | `verified`, 13 passed, 0 failed | Confirms integer typing, chained range detection, boundary generation, and pytest execution. |
-| 2 | Incorrect OR range predicate | `failing`, `O(1)` | `failing`, 9 passed, 4 failed | Detects values below and above the valid range that are incorrectly accepted by `or`. Replace `or` with `and`. |
-| 3 | Unconstrained Boolean predicate | `verified`, `O(1)` | `verified`, 8 passed, 0 failed | Confirms neutral values only need to return a Boolean when no range requirement exists. |
+| 1 | Correct bounded integer predicate | `verified`, zero failed checks, `O(1)` | `verified`, 14 passed, 0 failed | Confirms integer typing, chained range detection, boundary generation, and pytest execution. |
+| 2 | Incorrect OR range predicate | `failing`, `O(1)` | `failing`, 10 passed, 4 failed | Detects values below and above the valid range that are incorrectly accepted by `or`. Replace `or` with `and`. |
+| 3 | Unconstrained Boolean predicate | `verified`, `O(1)` | `verified`, 9 passed, 0 failed | Confirms neutral values only need to return a Boolean when no range requirement exists. |
 | 4 | Correct maximum search | `verified`, `O(n)` | `verified`, 6 passed, 0 failed | Covers empty input, one item, a middle maximum, negative values, and invalid input. |
 | 5 | Maximum search skipping the second item | `failing`, `O(n)` | `failing`, 4 passed, 2 failed | Detects the skipped middle maximum and the wrong answer for an all-negative collection. |
 | 6 | Duplicate removal with non-finite filtering | `verified` | `verified`, 6 passed, 0 failed | Confirms insertion order, duplicate removal, and filtering of `nan` and infinity. |
 | 7 | Python syntax error | `analysis-error` with diagnostics | `analysis-error`, 1 diagnostic | Ensures invalid source is reported instead of being presented as a failed behavioural test. |
-| 8 | Function using a module constant | `verified`, `O(1)` | `verified`, 8 passed, 0 failed | Confirms imports and constants remain available when pytest imports submitted code. |
+| 8 | Function using a module constant | `verified`, `O(1)` | `verified`, 9 passed, 0 failed | Confirms imports and constants remain available when pytest imports submitted code. |
 | 9 | Async predicate | `verified`, `O(1)` | `verified`, 2 passed, 0 failed | Executes coroutines through `asyncio.run` without requiring the pytest-asyncio plugin. |
 | 10 | Nested-loop function | `verified`, `O(n^2)` | `verified`, 4 passed, 0 failed | Confirms Python-specific nested-loop complexity analysis. |
 | 11 | String predicate | `verified`, `O(1)` | `verified`, 4 passed, 0 failed | Checks empty and very long Python strings without emitting JavaScript syntax. |
@@ -44,8 +44,8 @@ In this report, `PASS` means TestForge returned the expected answer. Deliberatel
 | 16 | Three nested loops | `verified`, `O(n^3)` | `verified`, 4 passed, 0 failed | Confirms cubic loop-depth analysis. |
 | 17 | Private-only module | `analysis-error` | `analysis-error` | Confirms private helper functions are not presented as public test targets. |
 | 18 | Broken duplicate removal | `failing` | `failing`, 5 passed, 1 failed | Detects failure to remove `nan` and infinite values. |
-| 19 | Single lower-bound predicate | `verified`, `O(1)` | `verified`, 9 passed, 0 failed | Confirms one-sided numeric constraints do not create a false upper bound. |
-| 20 | Typed multiple parameters | `verified`, `O(1)` | `verified`, 15 passed, 0 failed | Exercises float, integer, Boolean, default, `nan`, and infinity handling together. |
+| 19 | Single lower-bound predicate | `verified`, `O(1)` | `verified`, 10 passed, 0 failed | Confirms one-sided numeric constraints do not create a false upper bound. |
+| 20 | Typed multiple parameters | `verified`, `O(1)` | `verified`, 17 passed, 0 failed | Exercises float, integer, Boolean, default, `nan`, and infinity handling together. |
 | 21 | Binary search with internal blank lines | `verified`, `O(log n)` | `verified`, 16 passed, 0 failed | Confirms multi-block functions remain intact, sentinel results are accepted, pytest names are unique, and logarithmic search complexity is recognised. |
 | 22 | Binary search with reversed interval updates | `failing`, `O(log n)` | `failing`, 13 passed, 3 failed | Coordinated first, middle and last-position checks detect incorrect boundary movement. |
 
@@ -60,6 +60,32 @@ The same backend was tested through `/playground/analyse`, `/playground/generate
 | Correct Python validator | 1 | 13 | `test_source.py` | `verified` | 13 | 0 | `O(1)` |
 | Broken Python validator | 1 | 13 | `test_source.py` | `failing` | 9 | 4 | `O(1)` |
 
+## Public deployment regression
+
+The public Streamlit and Render deployment was exercised at
+`https://testforge-api.streamlit.app` and
+`https://testforge-6hko.onrender.com`. The final live regression batch produced
+the expected result for all 11 checks.
+
+| # | Live check | Expected result | Observed result |
+|---:|---|---|---|
+| 1 | Correct sorting function | `verified`, `O(n log n)` | 4 passed, 0 failed, `O(n log n)` |
+| 2 | Two nested loops | `verified`, `O(n^2)` | 4 passed, 0 failed, `O(n^2)` |
+| 3 | Async predicate | `verified` | 2 passed, 0 failed |
+| 4 | Dictionary predicate | `verified` | 2 passed, 0 failed |
+| 5 | Invalid Python syntax | `analysis-error` | Diagnostic returned: `invalid syntax` |
+| 6 | Broken duplicate removal | `failing` | 5 passed, 1 failed |
+| 7 | Correct binary search | `verified`, `O(log n)` | 16 passed, 0 failed, `O(log n)` |
+| 8 | Reversed binary-search interval updates | `failing`, `O(log n)` | 13 passed, 3 failed, `O(log n)` |
+| 9 | Generated pytest identifiers | All names unique | 15 unique names; no duplicates |
+| 10 | Input above 500 words | HTTP 413 | Rejected at 518 words with a clear limit message |
+| 11 | Infinite loop | Safely terminated | Stopped at the 15-second limit and reported one failed safety check |
+
+One nested-loop request initially received a transient non-JSON response from
+the free Render service. The immediate retry returned the expected verified
+result. This was treated as a hosting availability event rather than a product
+classification result.
+
 ## Automated regression coverage
 
 The Python changes are also covered by `TestForge/tests/unit/pythonSupport.test.ts`. These tests verify:
@@ -70,6 +96,9 @@ The Python changes are also covered by `TestForge/tests/unit/pythonSupport.test.
 - Predicate tests that permit either `False` or an appropriate exception for rejected input.
 - Portable async tests using `asyncio.run`.
 - Constant, linear, sorting, and nested-loop Python complexity estimates.
+- Binary-search semantics for first, middle, last and missing targets.
+- Unique generated pytest names for edge cases that normalise to similar text.
+- Word-limit rejection and infinite-loop timeout behaviour on the public deployment.
 
 The dashboard client retains three automated tests covering successful requests, backend errors, and connection failures.
 
@@ -97,7 +126,7 @@ Python automatic correction currently covers two defect patterns with strong evi
 
 | Defect | Suggested change | Verification |
 |---|---|---|
-| Bounded predicate uses `or` | Replace the range `or` with `and`. | The corrected source is rerun and returns `verified`. |
+| Bounded predicate uses `or` | Replace `or` with `and`; for an `int` annotation, also add an explicit integer check when missing. | The corrected source is rerun and returns `verified`. |
 | Maximum search begins with `[2:]` | Change the slice to `[1:]` so the second item is inspected. | The corrected source is rerun and returns `verified`. |
 
 The dashboard displays the explanation, corrected Python source, and an **Apply suggested fix** button for these patterns.
