@@ -4,7 +4,7 @@ import requests
 
 
 class TestForgeError(RuntimeError):
-    """Raised when the TypeScript backend cannot fulfil a request."""
+    """Raised when the TestForge backend cannot fulfil a request."""
 
 
 class TestForgeClient:
@@ -19,7 +19,7 @@ class TestForgeClient:
             )
         except requests.RequestException as error:
             raise TestForgeError(
-                f"Cannot connect to the TypeScript backend at {self.base_url}."
+                f"Cannot connect to the TestForge backend at {self.base_url}."
             ) from error
 
         try:

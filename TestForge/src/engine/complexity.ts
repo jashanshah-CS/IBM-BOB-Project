@@ -125,6 +125,6 @@ export function estimateComplexity(code: string): ComplexityEstimate {
     maintainability,
     confidence,
     evidence: [...evidence],
-    note: 'Heuristic estimate based on visible TypeScript syntax. Data sizes, library internals and runtime behaviour can change the real complexity.',
+    note: 'Heuristic estimate based on visible source syntax. Data sizes, library internals and runtime behaviour can change the real complexity.',
   };
 }

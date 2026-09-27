@@ -7,9 +7,16 @@ import { analyseFile } from '../engine/analyser.js';
 import { discoverEdgeCases } from '../engine/edgeCases.js';
 import { generateTests } from '../engine/generator.js';
 import { evaluateTypeScriptIsolated } from '../engine/isolatedEvaluator.js';
+import { evaluatePython } from '../engine/pyRunner.js';
 
 export const playgroundRouter = Router();
 const MAX_CODE_WORDS = 500;
+
+function detectLanguage(code: string): 'python' | 'typescript' {
+  const s = code.trim();
+  if (/^(?:async\s+)?def\s+\w|^class\s+\w|\ndef\s+\w|\nasync\s+def\s+\w/.test(s)) return 'python';
+  return 'typescript';
+}
 
 function codeInputError(code: string | undefined): string | undefined {
   if (!code || code.trim() === '') return 'No code provided';
@@ -41,9 +48,10 @@ playgroundRouter.post('/analyse', async (req, res, next) => {
       res.status(inputError?.startsWith('Code exceeds') ? 413 : 400).json({ error: inputError });
       return;
     }
+    const lang = detectLanguage(code);
     const tmpDir = join(tmpdir(), 'testforge-playground');
     await mkdir(tmpDir, { recursive: true });
-    const tmpFile = join(tmpDir, randomUUID() + '.ts');
+    const tmpFile = join(tmpDir, randomUUID() + (lang === 'python' ? '.py' : '.ts'));
     await writeFile(tmpFile, code, 'utf8');
     try {
       const symbols = await analyseFile(tmpFile);
@@ -69,9 +77,11 @@ playgroundRouter.post('/generate', async (req, res, next) => {
       res.status(inputError?.startsWith('Code exceeds') ? 413 : 400).json({ error: inputError });
       return;
     }
+    const lang = detectLanguage(code);
+    const isPython = lang === 'python';
     const tmpDir = join(tmpdir(), 'testforge-playground');
     await mkdir(tmpDir, { recursive: true });
-    const tmpFile = join(tmpDir, randomUUID() + '.ts');
+    const tmpFile = join(tmpDir, randomUUID() + (isPython ? '.py' : '.ts'));
     const outDir  = join(tmpDir, 'generated');
     await writeFile(tmpFile, code, 'utf8');
     await mkdir(outDir, { recursive: true });
@@ -79,18 +89,19 @@ playgroundRouter.post('/generate', async (req, res, next) => {
       const symbols    = await analyseFile(tmpFile);
       const edgeCases  = discoverEdgeCases(symbols);
       const tests      = await generateTests(symbols, edgeCases, outDir, 'unit');
-      const generatedSource = tests[0]?.source ?? '// No exported symbols found — nothing to generate.\n// Make sure your functions use the "export" keyword.';
-      // The analyser works from a temporary file that is deleted below. Make the
-      // downloaded pair portable by importing the accompanying source.ts file.
-      const source = generatedSource.replace(
-        /from '\.\.\/[^']+\.js';/,
-        "from './source.js';",
-      );
+      const noSymbolsMsg = isPython
+        ? '# No public symbols found — nothing to generate.\n# Make sure your functions do not start with an underscore.'
+        : '// No exported symbols found — nothing to generate.\n// Make sure your functions use the "export" keyword.';
+      const generatedSource = tests[0]?.source ?? noSymbolsMsg;
+      // Make the downloaded pair portable by using a stable source filename.
+      const source = isPython
+        ? generatedSource.replace(/^from \S+ import/m, 'from source import')
+        : generatedSource.replace(/from '\.\.\/[^']+\.js';/, "from './source.js';");
       res.json({
         source,
         sourceCode: code,
-        sourceFileName: 'source.ts',
-        testFileName: 'source.test.ts',
+        sourceFileName: isPython ? 'source.py' : 'source.ts',
+        testFileName: isPython ? 'test_source.py' : 'source.test.ts',
         symbolCount: symbols.length,
         edgeCaseCount: edgeCases.length,
       });
@@ -112,6 +123,10 @@ playgroundRouter.post('/run', async (req, res, next) => {
     const inputError = codeInputError(code);
     if (inputError || !code) {
       res.status(inputError?.startsWith('Code exceeds') ? 413 : 400).json({ error: inputError });
+      return;
+    }
+    if (detectLanguage(code) === 'python') {
+      res.json(await evaluatePython(code));
       return;
     }
     res.json(await evaluateTypeScriptIsolated(code));
@@ -247,7 +262,10 @@ const PLAYGROUND_HTML = '<!DOCTYPE html>\n' +
 'var lastSrc="";\n' +
 'var lastCode="";\n' +
 'var correctedCode="";\n' +
+'var lastTestFileName="source.test.ts";\n' +
+'var lastSrcFileName="source.ts";\n' +
 '\n' +
+'function detectLang(src){var s=src.trim();return(/^(?:async\\s+)?def\\s+\\w|^class\\s+\\w|\\ndef\\s+\\w|\\nasync\\s+def\\s+\\w/.test(s))?"Python":"TypeScript";}\n' +
 'code.addEventListener("input",function(){charCount.textContent=code.value.length?code.value.length+" chars":""});\n' +
 '\n' +
 'document.querySelectorAll(".tab").forEach(function(t){\n' +
@@ -282,7 +300,7 @@ const PLAYGROUND_HTML = '<!DOCTYPE html>\n' +
 '\n' +
 'btnA.addEventListener("click",function(){\n' +
 '  var src=code.value.trim();\n' +
-'  if(!src){setStatus("Paste some TypeScript code first.","err");return;}\n' +
+'  if(!src){setStatus("Paste some code first.","err");return;}\n' +
 '  busy("Analysing...");\n' +
 '  fetch("/playground/analyse",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:src})})\n' +
 '  .then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});})\n' +
@@ -290,8 +308,10 @@ const PLAYGROUND_HTML = '<!DOCTYPE html>\n' +
 '    if(!x.ok){setStatus("Error: "+(x.d.error||"unknown"),"err");return;}\n' +
 '    var syms=x.d.symbols;\n' +
 '    var edges=x.d.edgeCases;\n' +
+'    var isPy=detectLang(src)==="Python";\n' +
 '    if(syms.length===0){\n' +
-'      symList.innerHTML=\'<div class="empty"><div class="ico">&#129335;</div><div>No exported symbols found.<br>Add <code>export</code> before your functions.</div></div>\';\n' +
+'      var noSymMsg=isPy?"No public symbols detected. Ensure functions are not prefixed with <code>_</code>.":"No exported symbols found. Add <code>export</code> before your functions.";\n' +
+'      symList.innerHTML=\'<div class="empty"><div class="ico">&#129335;</div><div>\'+noSymMsg+\'</div></div>\';\n' +
 '    }else{\n' +
 '      symList.innerHTML=syms.map(function(s){\n' +
 '        var col=kindColour(s.kind);\n' +
@@ -345,8 +365,9 @@ const PLAYGROUND_HTML = '<!DOCTYPE html>\n' +
 '\n' +
 'btnR.addEventListener("click",function(){\n' +
 '  var src=code.value.trim();\n' +
-'  if(!src){setStatus("Paste some TypeScript code first.","err");return;}\n' +
-'  busy("Running generated tests...");\n' +
+'  if(!src){setStatus("Paste some code first.","err");return;}\n' +
+'  var isRunPy=detectLang(src)==="Python";\n' +
+'  busy(isRunPy?"Analysing complexity...":"Running generated tests...");\n' +
 '  fetch("/playground/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:src})})\n' +
 '  .then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});})\n' +
 '  .then(function(x){\n' +
@@ -363,7 +384,8 @@ const PLAYGROUND_HTML = '<!DOCTYPE html>\n' +
 '      highlightLine(d.diagnostics[0].line);\n' +
 '      return;\n' +
 '    }\n' +
-'    resultList.innerHTML=d.tests.map(function(t){return \'<div class="card \'+(t.passed?"pass":"fail")+\'"><div class="card-name">\'+(t.passed?"PASS: ":"FAIL: ")+esc(t.name)+\'</div><div class="edet">Expected: <code>\'+esc(t.expected)+\'</code></div><div class="edet">Actual: <code>\'+esc(t.actual)+\'</code></div>\'+(t.error?\'<div class="edet">Error: \'+esc(t.error)+\'</div>\':"")+\'</div>\';}).join("")||\'<div class="empty">No executable exported functions found.</div>\';\n' +
+'    var emptyResultMsg=isRunPy?\'<div class="empty"><div class="ico">&#9989;</div><div>Python test execution runs via pytest. Use <strong>Generate Tests</strong> to download a test file.</div></div>\':\'<div class="empty">No executable exported functions found.</div>\';\n' +
+'    resultList.innerHTML=d.tests.map(function(t){return \'<div class="card \'+(t.passed?"pass":"fail")+\'"><div class="card-name">\'+(t.passed?"PASS: ":"FAIL: ")+esc(t.name)+\'</div><div class="edet">Expected: <code>\'+esc(t.expected)+\'</code></div><div class="edet">Actual: <code>\'+esc(t.actual)+\'</code></div>\'+(t.error?\'<div class="edet">Error: \'+esc(t.error)+\'</div>\':"")+\'</div>\';}).join("")||emptyResultMsg;\n' +
 '    if(d.suggestion){\n' +
 '      correctedCode=d.suggestion.correctedCode;\n' +
 '      fixOut.textContent="// "+d.suggestion.message+"\\n\\n"+correctedCode;\n' +
@@ -373,7 +395,7 @@ const PLAYGROUND_HTML = '<!DOCTYPE html>\n' +
 '    }else{\n' +
 '      fixOut.textContent=d.failed?"// No automatic correction is available for this failure.":"// All derived tests passed; no correction is needed.";\n' +
 '    }\n' +
-'    setStatus(d.failed===0?"Verified: all "+d.passed+" derived tests passed.":"Potential defect: "+d.failed+" of "+(d.passed+d.failed)+" tests failed.",d.failed===0?"ok":"err");\n' +
+'    setStatus(isRunPy?"Complexity analysis complete — use Generate Tests to run pytest.":d.failed===0?"Verified: all "+d.passed+" derived tests passed.":"Potential defect: "+d.failed+" of "+(d.passed+d.failed)+" tests failed.",isRunPy?"ok":d.failed===0?"ok":"err");\n' +
 '    switchTab("result");\n' +
 '  })\n' +
 '  .catch(function(e){setStatus("Test execution error: "+e.message,"err");})\n' +
@@ -390,7 +412,7 @@ const PLAYGROUND_HTML = '<!DOCTYPE html>\n' +
 '\n' +
 'btnG.addEventListener("click",function(){\n' +
 '  var src=code.value.trim();\n' +
-'  if(!src){setStatus("Paste some TypeScript code first.","err");return;}\n' +
+'  if(!src){setStatus("Paste some code first.","err");return;}\n' +
 '  busy("Generating tests...");\n' +
 '  fetch("/playground/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:src})})\n' +
 '  .then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});})\n' +
@@ -398,6 +420,8 @@ const PLAYGROUND_HTML = '<!DOCTYPE html>\n' +
 '    if(!x.ok){setStatus("Error: "+(x.d.error||"unknown"),"err");return;}\n' +
 '    lastSrc=x.d.source;\n' +
 '    lastCode=x.d.sourceCode;\n' +
+'    lastTestFileName=x.d.testFileName||"source.test.ts";\n' +
+'    lastSrcFileName=x.d.sourceFileName||"source.ts";\n' +
 '    testOut.textContent=x.d.source;\n' +
 '    testOut.style.color="";\n' +
 '    btnD.style.display="block";\n' +
@@ -414,8 +438,7 @@ const PLAYGROUND_HTML = '<!DOCTYPE html>\n' +
 '  var b=new Blob([lastSrc],{type:"text/plain"});\n' +
 '  var a=document.createElement("a");\n' +
 '  a.href=URL.createObjectURL(b);\n' +
-'  a.download="generated.test.ts";\n' +
-'  a.download="source.test.ts";\n' +
+'  a.download=lastTestFileName;\n' +
 '  a.click();\n' +
 '  URL.revokeObjectURL(a.href);\n' +
 '});\n' +
@@ -425,7 +448,7 @@ const PLAYGROUND_HTML = '<!DOCTYPE html>\n' +
 '  var b=new Blob([lastCode],{type:"text/plain"});\n' +
 '  var a=document.createElement("a");\n' +
 '  a.href=URL.createObjectURL(b);\n' +
-'  a.download="source.ts";\n' +
+'  a.download=lastSrcFileName;\n' +
 '  a.click();\n' +
 '  URL.revokeObjectURL(a.href);\n' +
 '});\n' +
@@ -446,6 +469,8 @@ const PLAYGROUND_HTML = '<!DOCTYPE html>\n' +
 '  lastSrc="";\n' +
 '  lastCode="";\n' +
 '  correctedCode="";\n' +
+'  lastTestFileName="source.test.ts";\n' +
+'  lastSrcFileName="source.ts";\n' +
 '  setStatus("");\n' +
 '  switchTab("sym");\n' +
 '});\n' +

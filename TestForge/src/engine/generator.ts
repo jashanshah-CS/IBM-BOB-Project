@@ -4,6 +4,10 @@ import { join, basename, extname, relative, dirname } from 'node:path';
 import type { GeneratedTest, SourceSymbol, EdgeCase, ParameterInfo } from '../types.js';
 import { validNumericValue } from './numericInputs.js';
 
+function isPythonSource(filePath: string): boolean {
+  return extname(filePath) === '.py';
+}
+
 // ---------------------------------------------------------------------------
 // Test generator — emits real, executable Vitest test files.
 // No placeholder assertions, no TODO comments, no commented-out imports.
@@ -53,7 +57,10 @@ async function generateUnitTests(
 
   for (const [filePath, fileSymbols] of byFile) {
     const fileBase = basename(filePath, extname(filePath));
-    const testFileName = `${fileBase}.unit.test.ts`;
+    const isPython = isPythonSource(filePath);
+    const testFileName = isPython
+      ? `test_${fileBase}.py`
+      : `${fileBase}.unit.test.ts`;
     const testFilePath = join(outputDir, testFileName);
 
     const callableSymbols = fileSymbols.filter(
@@ -62,7 +69,9 @@ async function generateUnitTests(
 
     if (callableSymbols.length === 0) continue;
 
-    const source = renderUnitTestFile(filePath, callableSymbols, edgeCases, testFilePath);
+    const source = isPython
+      ? renderPythonTestFile(filePath, callableSymbols, edgeCases)
+      : renderUnitTestFile(filePath, callableSymbols, edgeCases, testFilePath);
 
     await writeFile(testFilePath, source, 'utf8');
     tests.push({
@@ -390,5 +399,161 @@ function renderIntegrationTestFile(symbols: SourceSymbol[]): string {
   }
 
   lines.push(`});`);
+  return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Python test generation (pytest)
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps the normalised shared type vocabulary back to a Python literal for use
+ * inside a pytest assertion call.
+ */
+function defaultPyArgFor(param: ParameterInfo): string {
+  const t = param.type.toLowerCase();
+  if (t === 'unknown' || t === 'any') {
+    // Infer a sensible default from the parameter name when there is no type annotation
+    const n = param.name.toLowerCase();
+    if (/arr|array|list|items|values|nums|numbers|elements|data|seq|sequence/.test(n)) return '[1, 2, 3]';
+    if (/target|val|value|key|search|query|num|n$|x$|k$/.test(n)) return '1';
+    if (/name|text|str|label|msg|message/.test(n)) return '"test"';
+    return '1';
+  }
+  if (t.includes('[]') || t.includes('list')) {
+    if (t.includes('number')) return '[1]';
+    if (t.includes('string') || t.includes('str')) return "['test']";
+    if (t.includes('boolean') || t.includes('bool')) return '[True]';
+    return '[{}]';
+  }
+  if (t === 'object' || t.startsWith('dict')) return '{}';
+  if (t.includes('string')) return '"test"';
+  if (t.includes('boolean')) return 'True';
+  if (t.includes('number')) return String(validNumericValue(param));
+  return 'None';
+}
+
+function pyCallArgs(params: ParameterInfo[]): string {
+  return params.map(defaultPyArgFor).join(', ');
+}
+
+/** Derive a Python import path from the source file path. */
+function pythonImportName(filePath: string): string {
+  // Use just the module name (no path) — caller is expected to run pytest
+  // from the project root so the module is resolvable.
+  return basename(filePath, '.py');
+}
+
+function renderPyEdgeCaseBody(sym: SourceSymbol, ec: EdgeCase): string[] {
+  const lines: string[] = [];
+  const behaviour = ec.expectedBehaviour.toLowerCase();
+  const throwsOrError = /throw|error|reject|invalid|required|raises?/i.test(behaviour);
+
+  // Build the call with the suggested input substituted.
+  const suggestion = ec.inputSuggestion.trim();
+  const [paramName, rawValue] = suggestion.split('=').map((s) => s.trim());
+  const args = sym.params.map((p) => {
+    if (p.name === paramName && rawValue !== undefined) {
+      // Convert JS literals to Python literals
+      const pyVal = rawValue
+        .replace(/\bundefined\b/g, 'None')
+        .replace(/\bnull\b/g, 'None')
+        .replace(/\bNaN\b/g, 'float("nan")')
+        .replace(/\bInfinity\b/g, 'float("inf")')
+        .replace(/\bNumber\.MAX_SAFE_INTEGER\b/g, '9007199254740991')
+        .replace(/\btrue\b/g, 'True')
+        .replace(/\bfalse\b/g, 'False');
+      return pyVal;
+    }
+    return defaultPyArgFor(p);
+  });
+  const call = `${sym.name}(${args.join(', ')})`;
+
+  if (ec.category === 'async-error' || throwsOrError) {
+    lines.push(`    with pytest.raises(Exception):`);
+    lines.push(`        ${call}`);
+    return lines;
+  }
+
+  if (ec.expectedResult !== undefined) {
+    lines.push(`    assert ${call} == ${ec.expectedResult}`);
+    return lines;
+  }
+
+  if (/\bboolean\b|\bbool\b/.test(sym.returnType.toLowerCase())) {
+    const expected = /\baccept|\bvalid|\btrue/i.test(behaviour) &&
+                     !/invalid|reject/i.test(behaviour) ? 'True' : 'False';
+    lines.push(`    assert ${call} == ${expected}`);
+    return lines;
+  }
+
+  lines.push(`    assert ${call} is not None`);
+  return lines;
+}
+
+function renderPythonTestFile(
+  filePath: string,
+  symbols: SourceSymbol[],
+  edgeCases: EdgeCase[],
+): string {
+  const moduleName = pythonImportName(filePath);
+  const exportNames = symbols.map((s) => s.name).join(', ');
+
+  const lines: string[] = [
+    `import pytest`,
+    `from ${moduleName} import ${exportNames}`,
+    ``,
+  ];
+
+  for (const sym of symbols) {
+    const symEdgeCases = edgeCases.filter((ec) => ec.symbolName === sym.name);
+    const normalArgs = pyCallArgs(sym.params);
+    const normalCall = `${sym.name}(${normalArgs})`;
+    const asyncDec = sym.isAsync ? `@pytest.mark.asyncio\n` : '';
+
+    // Happy-path test
+    lines.push(`${asyncDec}def test_${sym.name}_returns_result_for_valid_input():`);
+    if (/bool(ean)?/i.test(sym.returnType)) {
+      lines.push(`    assert isinstance(${normalCall}, bool)`);
+    } else {
+      lines.push(`    assert ${normalCall} is not None`);
+    }
+    lines.push(``);
+
+    // Edge-case tests
+    for (const ec of symEdgeCases) {
+      const bodyLines = renderPyEdgeCaseBody(sym, ec);
+      const safeName = ec.description
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_|_$/g, '')
+        .slice(0, 60);
+      lines.push(`${asyncDec}def test_${sym.name}_${safeName}():`);
+      lines.push(...bodyLines);
+      lines.push(``);
+    }
+
+    // Synthesised boundary tests when no edge cases exist
+    if (symEdgeCases.length === 0) {
+      for (const param of sym.params) {
+        const t = param.type.toLowerCase();
+        if (t.includes('number')) {
+          const zeroArgs = sym.params.map((p) => p.name === param.name ? '0' : defaultPyArgFor(p)).join(', ');
+          lines.push(`def test_${sym.name}_${param.name}_zero_boundary():`);
+          lines.push(`    # Should not raise for zero input`);
+          lines.push(`    ${sym.name}(${zeroArgs})`);
+          lines.push(``);
+        }
+        if (t.includes('string')) {
+          const emptyArgs = sym.params.map((p) => p.name === param.name ? '""' : defaultPyArgFor(p)).join(', ');
+          lines.push(`def test_${sym.name}_${param.name}_empty_string_boundary():`);
+          lines.push(`    # Should not raise for empty string`);
+          lines.push(`    ${sym.name}(${emptyArgs})`);
+          lines.push(``);
+        }
+      }
+    }
+  }
+
   return lines.join('\n');
 }

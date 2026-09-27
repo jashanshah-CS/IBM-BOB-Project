@@ -14,6 +14,16 @@ def count_words(value: str) -> int:
     return len(value.split())
 
 
+def detect_language(code: str) -> str:
+    """Return 'python' if the code looks like Python, otherwise 'typescript'."""
+    stripped = code.strip()
+    if stripped.startswith("def ") or stripped.startswith("async def ") or stripped.startswith("class "):
+        return "python"
+    if "\ndef " in stripped or "\nasync def " in stripped:
+        return "python"
+    return "typescript"
+
+
 @st.cache_resource
 def get_client(base_url: str) -> TestForgeClient:
     return TestForgeClient(base_url)
@@ -21,7 +31,8 @@ def get_client(base_url: str) -> TestForgeClient:
 
 def render_symbols(symbols: list[dict]) -> None:
     if not symbols:
-        st.info("No exported TypeScript symbols were detected.")
+        st.info("No exported symbols were detected. For TypeScript add `export`; for Python ensure functions are not prefixed with `_`.")
+        return
     for symbol in symbols:
         params = ", ".join(
             f"{item['name']}: {item['type']}" for item in symbol.get("params", [])
@@ -35,6 +46,7 @@ def render_symbols(symbols: list[dict]) -> None:
 def render_edge_cases(edge_cases: list[dict]) -> None:
     if not edge_cases:
         st.info("No edge cases were derived.")
+        return
     for case in edge_cases:
         with st.expander(f"{case['category'].title()}: {case['description']}"):
             st.write(f"**Function:** `{case['symbolName']}`")
@@ -67,8 +79,12 @@ def render_results(result: dict) -> None:
         ["Test results", "Complexity", "Diagnostics", "Suggested fix"]
     )
     with results_tab:
-        if not tests:
-            st.info("No executable tests were produced.")
+        if not tests and not diagnostics:
+            lang = detect_language(st.session_state.get("source_code", ""))
+            if lang == "python":
+                st.info("No public functions were found to test. Ensure functions do not start with `_`.")
+            else:
+                st.info("No executable tests were produced.")
         for test in tests:
             icon = "✅" if test.get("passed") else "❌"
             with st.expander(f"{icon} {test.get('name', 'Generated test')}"):
@@ -88,7 +104,7 @@ def render_results(result: dict) -> None:
 
     with diagnostics_tab:
         if not diagnostics:
-            st.success("No TypeScript syntax diagnostics were reported.")
+            st.success("No syntax diagnostics were reported.")
         for diagnostic in diagnostics:
             st.error(
                 f"Line {diagnostic.get('line')}:{diagnostic.get('column')} — "
@@ -100,8 +116,10 @@ def render_results(result: dict) -> None:
         if not suggestion:
             st.info("No supported automatic correction is available or required.")
         else:
+            lang = detect_language(st.session_state.get("source_code", ""))
+            code_lang = "python" if lang == "python" else "typescript"
             st.warning(f"Line {suggestion['line']}: {suggestion['message']}")
-            st.code(suggestion["correctedCode"], language="typescript")
+            st.code(suggestion["correctedCode"], language=code_lang)
             st.button(
                 "Apply suggested correction",
                 on_click=apply_suggested_correction,
@@ -110,9 +128,9 @@ def render_results(result: dict) -> None:
 
 
 st.title("🧪 TestForge Dashboard")
-st.caption("Streamlit interface powered by the TypeScript TestForge engine")
+st.caption("Streamlit interface powered by the TestForge engine — supports TypeScript and Python")
 
-api_url = st.sidebar.text_input("TypeScript backend URL", value=DEFAULT_API_URL)
+api_url = st.sidebar.text_input("Backend URL", value=DEFAULT_API_URL)
 client = get_client(api_url)
 try:
     health = client.health()
@@ -125,6 +143,8 @@ except TestForgeError as error:
     st.sidebar.info("Start the backend with `npm run dev` inside `TestForge/`.")
 st.sidebar.markdown("### Architecture")
 st.sidebar.code("Streamlit → Express API → TestForge engine", language="text")
+st.sidebar.markdown("### Supported languages")
+st.sidebar.markdown("- TypeScript / JavaScript (`.ts`, `.js`)\n- Python (`.py`)")
 
 if "source_code" not in st.session_state:
     st.session_state.source_code = """export function validateQuantity(quantity: number): boolean {
@@ -134,27 +154,42 @@ for key in ("analysis", "run_result", "generated"):
     if key not in st.session_state:
         st.session_state[key] = None
 
-st.subheader("TypeScript source")
+st.subheader("Source code")
 source_code = st.text_area(
-    "Paste an exported TypeScript function", key="source_code", height=250
+    "Paste a function to analyse", key="source_code", height=250
 )
+
+# Detect language from whatever is currently in the editor
+current_lang = detect_language(source_code)
+lang_label = "Python" if current_lang == "python" else "TypeScript"
+code_syntax = "python" if current_lang == "python" else "typescript"
+
 word_count = count_words(source_code)
 over_limit = word_count > MAX_CODE_WORDS
-st.caption(f"{word_count} / {MAX_CODE_WORDS} words")
+lang_indicator = f" · detected language: **{lang_label}**" if source_code.strip() else ""
+st.caption(f"{word_count} / {MAX_CODE_WORDS} words{lang_indicator}")
 if over_limit:
     st.error(
         f"Code is {word_count - MAX_CODE_WORDS} words over the limit. "
         f"Shorten it to {MAX_CODE_WORDS} words before running TestForge."
     )
 
+generate_label = "⚗️ Generate pytest" if current_lang == "python" else "⚗️ Generate Vitest"
+source_ext = ".py" if current_lang == "python" else ".ts"
+test_ext = ".py" if current_lang == "python" else ".test.ts"
+test_prefix = "test_" if current_lang == "python" else ""
+source_filename = f"source{source_ext}"
+test_filename = f"{test_prefix}source{test_ext}"
+
+run_label = "▶ Run tests" if current_lang == "python" else "▶ Run generated checks"
 analyse_col, run_col, generate_col = st.columns(3)
 analyse = analyse_col.button("🔍 Analyse", use_container_width=True, disabled=over_limit)
 run_tests = run_col.button(
-    "▶ Run generated checks", type="primary", use_container_width=True,
+    run_label, type="primary", use_container_width=True,
     disabled=over_limit,
 )
 generate = generate_col.button(
-    "⚗️ Generate Vitest", use_container_width=True, disabled=over_limit,
+    generate_label, use_container_width=True, disabled=over_limit,
 )
 
 try:
@@ -162,10 +197,15 @@ try:
         st.session_state.analysis = client.analyse(source_code)
     if run_tests:
         st.session_state.run_result = client.run(source_code)
-        st.session_state.analysis = {
-            "symbols": st.session_state.run_result.get("symbols", []),
-            "edgeCases": st.session_state.run_result.get("edgeCases", []),
-        }
+        # Only overwrite analysis from the run result for TypeScript (Python run
+        # returns empty symbols by design — preserve any existing analysis).
+        run_symbols = st.session_state.run_result.get("symbols", [])
+        run_edges = st.session_state.run_result.get("edgeCases", [])
+        if run_symbols or run_edges or current_lang != "python":
+            st.session_state.analysis = {
+                "symbols": run_symbols,
+                "edgeCases": run_edges,
+            }
     if generate:
         st.session_state.generated = client.generate(source_code)
 except TestForgeError as error:
@@ -185,16 +225,16 @@ if st.session_state.run_result:
 if st.session_state.generated:
     st.divider()
     generated = st.session_state.generated
-    st.subheader("Generated Vitest suite")
-    st.code(generated["source"], language="typescript")
+    st.subheader(f"Generated {'pytest' if current_lang == 'python' else 'Vitest'} suite")
+    st.code(generated["source"], language=code_syntax)
     source_col, test_col = st.columns(2)
     source_col.download_button(
-        "Download source.ts", generated["sourceCode"],
-        file_name=generated.get("sourceFileName", "source.ts"),
-        mime="text/typescript", use_container_width=True,
+        f"Download {source_filename}", generated["sourceCode"],
+        file_name=generated.get("sourceFileName", source_filename),
+        mime="text/plain", use_container_width=True,
     )
     test_col.download_button(
-        "Download source.test.ts", generated["source"],
-        file_name=generated.get("testFileName", "source.test.ts"),
-        mime="text/typescript", use_container_width=True,
+        f"Download {test_filename}", generated["source"],
+        file_name=generated.get("testFileName", test_filename),
+        mime="text/plain", use_container_width=True,
     )

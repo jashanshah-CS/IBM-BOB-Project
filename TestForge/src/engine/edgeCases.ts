@@ -1,10 +1,15 @@
 import type { EdgeCase, SourceSymbol, DocSection } from '../types.js';
 import { validNumericValue } from './numericInputs.js';
+import { extname } from 'node:path';
 
 // ---------------------------------------------------------------------------
 // Heuristic edge-case discovery.
 // Inspects symbol signatures and doc sections to produce EdgeCase records.
 // ---------------------------------------------------------------------------
+
+function isPython(sym: SourceSymbol): boolean {
+  return extname(sym.filePath) === '.py';
+}
 
 export function discoverEdgeCases(
   symbols: SourceSymbol[],
@@ -35,24 +40,36 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
     const isString = /(^|\|)\s*string\s*(\||$)/.test(t);
     const isNumber = /(^|\|)\s*number\s*(\||$)/.test(t);
 
+    const py = isPython(sym);
+
     // Nullish inputs
     if (!param.optional) {
-      cases.push(
-        {
+      if (py) {
+        cases.push({
           symbolName: sym.name,
           category: 'nullish',
-          description: `Pass undefined for required param "${param.name}"`,
-          inputSuggestion: `${param.name} = undefined`,
+          description: `Pass None for required param "${param.name}"`,
+          inputSuggestion: `${param.name} = None`,
           expectedBehaviour: 'Should reject invalid required input',
-        },
-        {
-          symbolName: sym.name,
-          category: 'nullish',
-          description: `Pass null for required param "${param.name}"`,
-          inputSuggestion: `${param.name} = null`,
-          expectedBehaviour: 'Should reject invalid required input',
-        },
-      );
+        });
+      } else {
+        cases.push(
+          {
+            symbolName: sym.name,
+            category: 'nullish',
+            description: `Pass undefined for required param "${param.name}"`,
+            inputSuggestion: `${param.name} = undefined`,
+            expectedBehaviour: 'Should reject invalid required input',
+          },
+          {
+            symbolName: sym.name,
+            category: 'nullish',
+            description: `Pass null for required param "${param.name}"`,
+            inputSuggestion: `${param.name} = null`,
+            expectedBehaviour: 'Should reject invalid required input',
+          },
+        );
+      }
     }
 
     // String-specific
@@ -101,8 +118,8 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
         {
           symbolName: sym.name,
           category: 'overflow',
-          description: `Number.MAX_SAFE_INTEGER for "${param.name}"`,
-          inputSuggestion: `${param.name} = Number.MAX_SAFE_INTEGER`,
+          description: py ? `Very large integer for "${param.name}"` : `Number.MAX_SAFE_INTEGER for "${param.name}"`,
+          inputSuggestion: py ? `${param.name} = 9007199254740991` : `${param.name} = Number.MAX_SAFE_INTEGER`,
           expectedBehaviour: constrainedExpectation(
             Number.MAX_SAFE_INTEGER,
             'Should not overflow or produce NaN',
@@ -121,22 +138,22 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
         {
           symbolName: sym.name,
           category: 'type-coercion',
-          description: `NaN for "${param.name}"`,
-          inputSuggestion: `${param.name} = NaN`,
+          description: py ? `float("nan") for "${param.name}"` : `NaN for "${param.name}"`,
+          inputSuggestion: py ? `${param.name} = float("nan")` : `${param.name} = NaN`,
           expectedBehaviour: 'Should reject invalid numeric input',
         },
         {
           symbolName: sym.name,
           category: 'overflow',
-          description: `Infinity for "${param.name}"`,
-          inputSuggestion: `${param.name} = Infinity`,
+          description: py ? `float("inf") for "${param.name}"` : `Infinity for "${param.name}"`,
+          inputSuggestion: py ? `${param.name} = float("inf")` : `${param.name} = Infinity`,
           expectedBehaviour: 'Should reject invalid numeric input',
         },
         {
           symbolName: sym.name,
           category: 'overflow',
-          description: `Negative infinity for "${param.name}"`,
-          inputSuggestion: `${param.name} = -Infinity`,
+          description: py ? `float("-inf") for "${param.name}"` : `Negative infinity for "${param.name}"`,
+          inputSuggestion: py ? `${param.name} = float("-inf")` : `${param.name} = -Infinity`,
           expectedBehaviour: 'Should reject invalid numeric input',
         },
         {
@@ -188,7 +205,7 @@ function edgeCasesForSymbol(sym: SourceSymbol): EdgeCase[] {
     if (isCollection) {
       const oneItem = t.includes('number') ? '1'
         : t.includes('string') ? '"test"'
-          : t.includes('boolean') ? 'true' : '{}';
+          : t.includes('boolean') ? (py ? 'True' : 'true') : '{}';
       const returnsUndefinedForEmpty = sym.returnType.toLowerCase().includes('undefined');
       const findsMaximum = t.includes('number') &&
         /(?:find)?(?:largest|max(?:imum)?)/i.test(sym.name) &&

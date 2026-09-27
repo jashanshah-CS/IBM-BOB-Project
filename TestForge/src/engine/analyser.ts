@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
 import type { SourceSymbol, ParameterInfo } from '../types.js';
+import { analysePythonFile } from './pyAnalyser.js';
 
 // ---------------------------------------------------------------------------
 // Lightweight regex-based analyser.
@@ -129,7 +130,11 @@ function lineOf(source: string, index: number): number {
 }
 
 export async function analyseFile(filePath: string): Promise<SourceSymbol[]> {
-  if (extname(filePath) !== '.ts' && extname(filePath) !== '.js') {
+  const ext = extname(filePath);
+  if (ext === '.py') {
+    return analysePythonFile(filePath);
+  }
+  if (ext !== '.ts' && ext !== '.js') {
     return [];
   }
 
