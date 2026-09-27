@@ -565,6 +565,23 @@ function renderPythonTestFile(
     }
     lines.push(``);
 
+    // Binary search needs coordinated collection + target scenarios; varying
+    // either parameter alone cannot verify that the interval moves correctly.
+    if (/binary_?search/i.test(sym.name) && sym.params.length >= 2 && /number/i.test(sym.returnType)) {
+      lines.push(`def test_${sym.name}_finds_first_position():`);
+      lines.push(`    assert ${sym.name}([1, 3, 5, 7], 1) == 0`);
+      lines.push(``);
+      lines.push(`def test_${sym.name}_finds_middle_position():`);
+      lines.push(`    assert ${sym.name}([1, 3, 5, 7], 5) == 2`);
+      lines.push(``);
+      lines.push(`def test_${sym.name}_finds_last_position():`);
+      lines.push(`    assert ${sym.name}([1, 3, 5, 7], 7) == 3`);
+      lines.push(``);
+      lines.push(`def test_${sym.name}_returns_minus_one_for_missing_target():`);
+      lines.push(`    assert ${sym.name}([1, 3, 5, 7], 4) == -1`);
+      lines.push(``);
+    }
+
     // Edge-case tests
     for (const [edgeIndex, ec] of symEdgeCases.entries()) {
       const bodyLines = renderPyEdgeCaseBody(sym, ec);

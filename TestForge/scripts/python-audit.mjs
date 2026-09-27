@@ -178,6 +178,25 @@ def can_purchase(price: float, quantity: int, active: bool = True) -> bool:
 
     return -1`,
   },
+  {
+    name: 'binary search with reversed interval updates',
+    expected: 'failing',
+    complexity: 'O(log n)',
+    code: `def binary_search(numbers: list[int], target: int) -> int:
+    left = 0
+    right = len(numbers) - 1
+
+    while left <= right:
+        middle = (left + right) // 2
+        if numbers[middle] == target:
+            return middle
+        if numbers[middle] < target:
+            right = middle - 1
+        else:
+            left = middle + 1
+
+    return -1`,
+  },
 ];
 
 let failed = 0;

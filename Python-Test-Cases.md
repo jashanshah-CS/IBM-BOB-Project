@@ -17,7 +17,7 @@ npm run audit:python
 Latest result:
 
 ```text
-21/21 Python end-to-end scenarios passed
+22/22 Python end-to-end scenarios passed
 ```
 
 In this report, `PASS` means TestForge returned the expected answer. Deliberately incorrect programs are expected to receive the status `failing`.
@@ -46,7 +46,8 @@ In this report, `PASS` means TestForge returned the expected answer. Deliberatel
 | 18 | Broken duplicate removal | `failing` | `failing`, 5 passed, 1 failed | Detects failure to remove `nan` and infinite values. |
 | 19 | Single lower-bound predicate | `verified`, `O(1)` | `verified`, 9 passed, 0 failed | Confirms one-sided numeric constraints do not create a false upper bound. |
 | 20 | Typed multiple parameters | `verified`, `O(1)` | `verified`, 15 passed, 0 failed | Exercises float, integer, Boolean, default, `nan`, and infinity handling together. |
-| 21 | Binary search with internal blank lines | `verified`, `O(log n)` | `verified`, 12 passed, 0 failed | Confirms multi-block functions remain intact, sentinel results are accepted, pytest names are unique, and logarithmic search complexity is recognised. |
+| 21 | Binary search with internal blank lines | `verified`, `O(log n)` | `verified`, 16 passed, 0 failed | Confirms multi-block functions remain intact, sentinel results are accepted, pytest names are unique, and logarithmic search complexity is recognised. |
+| 22 | Binary search with reversed interval updates | `failing`, `O(log n)` | `failing`, 13 passed, 3 failed | Coordinated first, middle and last-position checks detect incorrect boundary movement. |
 
 ## Live API comparison
 
