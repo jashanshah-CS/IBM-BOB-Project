@@ -1,6 +1,10 @@
 # core_engine.py
+from ast import Module
+from concurrent.futures._base import Future
 import os
 import ast
+from requests.models import Response
+from typing import Any, Callable
 import requests
 import streamlit as st
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -8,8 +12,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-IBM_BOB_API_KEY = os.getenv("IBM_BOB_API_KEY")
-IBM_BOB_ENDPOINT = os.getenv("IBM_BOB_ENDPOINT")
+IBM_BOB_API_KEY: str | None = os.getenv("IBM_BOB_API_KEY")
+IBM_BOB_ENDPOINT: str | None  = os.getenv("IBM_BOB_ENDPOINT")
 
 
 class FastCodeAnalyzer(ast.NodeVisitor):
@@ -17,24 +21,24 @@ class FastCodeAnalyzer(ast.NodeVisitor):
     Pure O(N) single-pass AST visitor with zero redundant sub-tree walks.
     Tracks loop depth, hidden method overheads, and security risks in one traversal.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.max_loop_depth = 0
         self.current_depth = 0
         self.functions = []
         self.security_issues = []
         self.performance_warnings = []
 
-    def _visit_loop(self, node):
+    def _visit_loop(self, node) -> None:
         self.current_depth += 1
         if self.current_depth > self.max_loop_depth:
             self.max_loop_depth = self.current_depth
         self.generic_visit(node)
         self.current_depth -= 1
 
-    visit_For = _visit_loop
-    visit_While = _visit_loop
+    visit_For: Callable[..., Any] = _visit_loop
+    visit_While: Callable[..., Any] = _visit_loop
 
-    def visit_AugAssign(self, node):
+    def visit_AugAssign(self, node) -> None:
         # String concatenation check inside loop context (+=)
         if self.current_depth > 0 and isinstance(node.op, ast.Add):
             self.performance_warnings.append(
@@ -79,7 +83,7 @@ def analyze_code_ast(code_input: str) -> dict:
     Fast local AST analyzer and edge-case unit test synthesizer.
     """
     try:
-        tree = ast.parse(code_input)
+        tree: Module = ast.parse(code_input)
     except SyntaxError:
         return {
             "status": "error",
@@ -90,18 +94,18 @@ def analyze_code_ast(code_input: str) -> dict:
             "error": "⚠️ Input Error: Provided text could not be parsed as valid Python code. Please paste valid Python code (e.g., `def my_func(): ...`) in Section 2, and upload Markdown specs in the sidebar."
         }
 
-    analyzer = FastCodeAnalyzer()
-    analyzer.visit(tree)
+    analyzer: FastCodeAnalyzer = FastCodeAnalyzer()
+    analyzer.visit(node=tree)
 
-    generated_tests = []
+    generated_tests: list[Any] = []
     # Fast test case synthesis loop
     for f in analyzer.functions:
-        func_name = f["name"]
-        params = f["params"]
-        num_params = len(params)
+        func_name: Any = f["name"]
+        params: Any = f["params"]
+        num_params: int = len(params)
 
         # Test Case 1: Null / Type Safety
-        null_args = ", ".join(["None"] * num_params) if num_params else ""
+        null_args: str = ", ".join(["None"] * num_params) if num_params else ""
         generated_tests.append({
             "name": f"test_{func_name}_null_safety",
             "type": "Null / Type Safety",
@@ -115,7 +119,7 @@ def analyze_code_ast(code_input: str) -> dict:
         })
 
         # Test Case 2: Boundary Inputs
-        empty_args = ", ".join(
+        empty_args: str = ", ".join(
             ["0" if any(k in p.lower() for k in ("num", "count", "id", "amount", "price", "val")) else "[]" for p in params]
         ) if num_params else ""
 
@@ -133,8 +137,8 @@ def analyze_code_ast(code_input: str) -> dict:
             "explanation": f"Tests `{func_name}` against edge boundary inputs (zero limits or empty collections)."
         })
 
-    depth = analyzer.max_loop_depth
-    complexity_str = f"O(N^{depth})" if depth > 1 else ("O(N)" if depth == 1 else "O(1)")
+    depth: int = analyzer.max_loop_depth
+    complexity_str: str = f"O(N^{depth})" if depth > 1 else ("O(N)" if depth == 1 else "O(1)")
 
     return {
         "status": "success",
@@ -150,13 +154,15 @@ def analyze_code_ast(code_input: str) -> dict:
 
 def call_subagent(agent_role: str, code_input: str, doc_context: str) -> dict:
     """Helper to send concurrent API calls to IBM Bob endpoints."""
-    headers = {
+    if not IBM_BOB_ENDPOINT:
+        raise ValueError("IBM_BOB_ENDPOINT is not set in environment variables.")
+    headers: dict[str, str] = {
         "Authorization": f"Bearer {IBM_BOB_API_KEY}",
         "Content-Type": "application/json"
     }
-    prompt = f"Role: {agent_role}\nCode:\n{code_input}\nContext:\n{doc_context or 'None'}"
-    response = requests.post(
-        IBM_BOB_ENDPOINT,
+    prompt: str = f"Role: {agent_role}\nCode:\n{code_input}\nContext:\n{doc_context or 'None'}"
+    response: Response = requests.post(
+        url= IBM_BOB_ENDPOINT,
         json={"prompt": prompt, "temperature": 0.2},
         headers=headers,
         timeout=10
@@ -166,22 +172,26 @@ def call_subagent(agent_role: str, code_input: str, doc_context: str) -> dict:
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def run_bbob_analysis(code_input: str, doc_context: str = None) -> dict:
+def run_bbob_analysis(code_input: str, doc_context: str = "") -> dict:
     """
     Main pipeline entrypoint. Executes concurrent subagents if API credentials exist;
     otherwise executes the ultra-fast local AST engine.
     """
     if IBM_BOB_API_KEY and IBM_BOB_ENDPOINT:
         try:
-            roles = ["AST Complexity Subagent", "Edge Case Synthesizer", "Security Auditor"]
-            subagent_results = {}
+            roles: list[str] = ["AST Complexity Subagent", "Edge Case Synthesizer", "Security Auditor"]
+            subagent_results: dict[Any, Any] = {}
             with ThreadPoolExecutor(max_workers=3) as executor:
-                future_to_role = {
+                future_to_role: dict[Future[dict[Any, Any]], str] = {
                     executor.submit(call_subagent, role, code_input, doc_context): role 
                     for role in roles
                 }
                 for future in as_completed(future_to_role):
-                    subagent_results[future_to_role[future]] = future.result()
+                    role: str = future_to_role[future]
+                    try:
+                        subagent_results[role] = future.result()
+                    except Exception as fut_exc:
+                        st.warning(body=f"Subagent '{role}' failed ({fut_exc}). Skipping.")
 
             return {
                 "status": "success",
@@ -191,6 +201,6 @@ def run_bbob_analysis(code_input: str, doc_context: str = None) -> dict:
                 "performance_warnings": []
             }
         except Exception as e:
-            st.warning(f"IBM Bob 2.0 API connection bypassed ({e}). Utilizing local AST engine.")
+            st.warning(body=f"IBM Bob 2.0 API connection bypassed ({e}). Utilizing local AST engine.")
 
     return analyze_code_ast(code_input)
