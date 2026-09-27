@@ -2,6 +2,8 @@
 
 TestForge is an intelligent multi-layer TypeScript test generator built for the **IBM Bob 2.0 Hackathon**. It takes developers from raw source code to edge-case tests, executable results, defect suggestions, and complexity estimates with less manual effort.
 
+**Hackathon submission:** Queen's Coder judges and reviewers should start with [`submission/README.md`](submission/README.md).
+
 The application is in [`TestForge/`](TestForge/).
 
 See [`Test-Cases.md`](Test-Cases.md) for the complete automated scenario list, observed results, detected defects, and corrected examples.
