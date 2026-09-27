@@ -2,6 +2,16 @@
 
 TestForge is an intelligent multi-layer TypeScript test generator built for the **IBM Bob 2.0 Hackathon**. It takes developers from raw source code to edge-case tests, executable results, defect suggestions, and complexity estimates with less manual effort.
 
+## IBM Bob usage statement
+
+Our team used IBM Bob as the main AI development tool during the initial design and implementation of TestForge. We began by describing the challenge: developers need more than shallow unit tests, because meaningful testing must include boundary cases, invalid inputs, integration behaviour, and documentation constraints. IBM Bob helped us convert this idea into a practical multi layer workflow consisting of source analysis, document understanding, edge case discovery, unit-test generation, integration test generation, test execution, and reporting.
+
+We used IBM Bob to scaffold and develop the TypeScript and Express backend, organise the project structure, and implement the analysis and testing workflow. It assisted with code that extracts exported TypeScript functions and parameters, derives edge cases, generates Vitest tests, runs checks, and reports results. We also used IBM Bob to develop the user interface and connect the testing workflow to an interactive dashboard where users can paste code, analyse it, generate tests, inspect failures, and review complexity information.
+
+IBM Bob supported our testing and refinement process by generating unit and API integration tests, checking boundary behaviour, and helping us identify problems in generated tests and application logic. We used its output as a starting point, reviewed the generated changes, ran the project, and improved the implementation through repeated testing. The repository includes the project code and exported IBM Bob development evidence so judges can review how the tool contributed.
+
+TestForge does not use IBM watsonx.ai or IBM watsonx Orchestrate. Our IBM technology usage for this project was IBM Bob.
+
 **Hackathon submission:** Queen's Coder judges and reviewers should start with [`submission/README.md`](submission/README.md).
 
 The application is in [`TestForge/`](TestForge/).
@@ -13,17 +23,21 @@ See the language-specific verification reports:
 
 This integration branch also includes a Streamlit interface in [`Dashboard/`](Dashboard/). It calls the TypeScript backend over HTTP, so the dashboard and browser playground use the same analysis, generated tests, complexity estimates, and correction logic. See [`DashboardREADME.MD`](DashboardREADME.MD) for startup instructions.
 
-## The problem
+## Long description - problem and solution
 
-Developers spend significant time writing repetitive tests and can miss boundary values, invalid inputs, integration behaviour, and documented constraints. Basic generated tests may also look complete while using placeholder assertions that never exercise the source code.
+Developers often spend considerable time writing repetitive tests, yet important cases such as null values, invalid types, numeric boundaries, empty collections, and incorrect conditions can still be missed. Basic AI test generators may produce shallow tests or placeholder assertions that look complete without exercising the submitted code. This creates extra debugging work and allows defects to reach later stages of development.
 
-TestForge analyses submitted code, derives meaningful cases from parameters and conditions, generates real Vitest assertions, executes the checks, and clearly shows which cases pass or fail.
+TestForge is an intelligent multi layer testing assistant for TypeScript developers, students, hackathon teams, and small engineering teams. A user pastes an exported TypeScript function into the Streamlit dashboard and selects **Analyse** or **Run generated checks**. TestForge extracts the function and its parameters, builds an edge case inventory, executes derived checks, and presents the expected value, actual value, and pass or fail result for each case. Users can also generate and download a portable Vitest test suite.
+
+The application identifies TypeScript syntax problems and estimates time complexity, space complexity, cyclomatic complexity, maintainability risk, and analysis confidence. When it recognises a supported defect, such as an incorrect `||` operator in a bounded range check, it explains the issue and proposes corrected code that the user can apply and test again.
+
+TestForge is distinctive because it combines code analysis, edge case discovery, executable test generation, dynamic verification, diagnostics, supported corrections, and complexity evidence in one accessible workflow. Instead of returning test code that users must trust without evidence, it demonstrates which generated checks actually pass and where the implementation may be defective. This reduces manual effort while helping users understand and improve their code.
 
 ## Features
 
 - **TypeScript analysis** for exported functions, parameters, return types, classes, methods, and source locations.
 - **Document understanding** for Markdown API specifications, user stories, and validation rules.
-- **Dynamic edge-case discovery** for null, undefined, zero, negative and decimal values, safe-integer limits, infinities, `NaN`, empty values, and boundaries inferred from comparisons.
+- **Dynamic edge case discovery** for null, undefined, zero, negative and decimal values, safe-integer limits, infinities, `NaN`, empty values, and boundaries inferred from comparisons.
 - **Executable Vitest generation** with derived assertions instead of placeholder tests such as `expect(true).toBe(true)`.
 - **In-browser execution** showing each expected value, actual value, and pass/fail result.
 - **Syntax diagnostics** that identify invalid TypeScript and highlight the relevant line.
@@ -74,14 +88,7 @@ npm run build
 npm test
 npm run dev
 ```
-
-Open:
-
-- Playground: <http://localhost:3000/playground>
-- Project home: <http://localhost:3000/>
-- Health check: <http://localhost:3000/health>
-
-To start the TypeScript backend and integrated Streamlit dashboard together on Windows, run `./start-integrated.ps1` from the repository root, then open <http://127.0.0.1:8501>.
+To start the TypeScript backend and integrated Streamlit dashboard together on Windows, run `./start-integrated.ps1` from the repository root.
 
 ## Playground guide
 
@@ -211,7 +218,3 @@ Open a pull request, ask another team member to review it, and merge after the c
 - Supertest
 - Zod
 - ESLint
-
-## Hackathon impact
-
-The demo turns one TypeScript file into an edge-case inventory, executable tests, clear failures, a supported correction, and complexity evidence in one workflow. This reduces repetitive test-writing effort and makes missing boundary behaviour visible before it reaches production.
