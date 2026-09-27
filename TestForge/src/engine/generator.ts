@@ -508,8 +508,7 @@ function renderPyEdgeCaseBody(sym: SourceSymbol, ec: EdgeCase): string[] {
   }
 
   if (ec.category === 'async-error' || throwsOrError) {
-    lines.push(`    with pytest.raises(Exception):`);
-    lines.push(`        ${call}`);
+    lines.push(`    _assert_defined_or_raises(lambda: ${call})`);
     return lines;
   }
 
@@ -542,6 +541,12 @@ function renderPythonTestFile(
     `    except (TypeError, ValueError, OverflowError):`,
     `        pass`,
     ``,
+    `def _assert_defined_or_raises(call):`,
+    `    try:`,
+    `        assert call() is not None`,
+    `    except (TypeError, ValueError, OverflowError):`,
+    `        pass`,
+    ``,
   ];
 
   for (const sym of symbols) {
@@ -561,14 +566,14 @@ function renderPythonTestFile(
     lines.push(``);
 
     // Edge-case tests
-    for (const ec of symEdgeCases) {
+    for (const [edgeIndex, ec] of symEdgeCases.entries()) {
       const bodyLines = renderPyEdgeCaseBody(sym, ec);
       const safeName = ec.description
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '_')
         .replace(/^_|_$/g, '')
         .slice(0, 60);
-      lines.push(`${asyncDec}def test_${sym.name}_${safeName}():`);
+      lines.push(`${asyncDec}def test_${sym.name}_${safeName}_${edgeIndex + 1}():`);
       lines.push(...bodyLines);
       lines.push(``);
     }

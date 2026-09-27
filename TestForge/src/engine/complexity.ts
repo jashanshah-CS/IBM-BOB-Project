@@ -138,6 +138,7 @@ export function estimatePythonComplexity(code: string): ComplexityEstimate {
   let linearOperations = 0;
   let allocatesCollection = false;
   let recursiveCalls = 0;
+  const binarySearchPattern = /\bwhile\b[\s\S]*\/\/\s*2[\s\S]*(?:=\s*\w+\s*\+\s*1|=\s*\w+\s*-\s*1)/.test(code);
   const functionNames: string[] = [];
   const evidence = new Set<string>();
 
@@ -180,6 +181,9 @@ export function estimatePythonComplexity(code: string): ComplexityEstimate {
   } else if (recursiveCalls === 1) {
     time = 'O(n)'; confidence = 'low';
     evidence.add('An apparent recursive call was found; the estimate assumes the input shrinks each call.');
+  } else if (binarySearchPattern && maxLoopDepth === 1) {
+    time = 'O(log n)';
+    evidence.add('The loop halves a search interval using a midpoint and moves one boundary past it.');
   } else if (maxLoopDepth >= 3) {
     time = `O(n^${maxLoopDepth})`; evidence.add(`${maxLoopDepth} nested loops were found.`);
   } else if (maxLoopDepth === 2) {

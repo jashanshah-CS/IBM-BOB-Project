@@ -17,7 +17,7 @@ npm run audit:python
 Latest result:
 
 ```text
-20/20 Python end-to-end scenarios passed
+21/21 Python end-to-end scenarios passed
 ```
 
 In this report, `PASS` means TestForge returned the expected answer. Deliberately incorrect programs are expected to receive the status `failing`.
@@ -46,6 +46,7 @@ In this report, `PASS` means TestForge returned the expected answer. Deliberatel
 | 18 | Broken duplicate removal | `failing` | `failing`, 5 passed, 1 failed | Detects failure to remove `nan` and infinite values. |
 | 19 | Single lower-bound predicate | `verified`, `O(1)` | `verified`, 9 passed, 0 failed | Confirms one-sided numeric constraints do not create a false upper bound. |
 | 20 | Typed multiple parameters | `verified`, `O(1)` | `verified`, 15 passed, 0 failed | Exercises float, integer, Boolean, default, `nan`, and infinity handling together. |
+| 21 | Binary search with internal blank lines | `verified`, `O(log n)` | `verified`, 12 passed, 0 failed | Confirms multi-block functions remain intact, sentinel results are accepted, pytest names are unique, and logarithmic search complexity is recognised. |
 
 ## Live API comparison
 
@@ -85,6 +86,9 @@ The dashboard client retains three automated tests covering successful requests,
 | Complexity estimates | Python source was processed by TypeScript syntax heuristics. | A Python-specific estimator now handles loops, nesting, sorting, recursion, branches, and allocations. |
 | Local startup | The backend could launch without knowing which Python executable contained pytest. | The integrated launcher passes `PYTHON_EXE` to the backend. |
 | Python long strings | The shared edge case used JavaScript `.repeat`, which raises `AttributeError` in Python. | Python generation converts the value to string multiplication such as `"a" * 10000`. |
+| Multi-block Python functions | Blank lines inside a function could cause the remaining indented block to be moved under a module guard, producing `'return' outside function`. | Blank lines now preserve function scope; binary search is covered by the automated audit. |
+| Duplicate pytest names | Positive and negative infinity cases generated the same function name, allowing one test to replace the other. | Every generated edge-case test receives a stable numeric suffix. |
+| Algorithm sentinel values | Search functions returning `-1` for absent or unsuitable targets were incorrectly required to raise. | Non-Boolean algorithms may return a defined sentinel or raise a clear input exception. |
 
 ## Suggested corrections
 

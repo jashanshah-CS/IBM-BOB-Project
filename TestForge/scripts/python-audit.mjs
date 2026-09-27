@@ -159,6 +159,25 @@ def within_limit(value: int) -> bool:
 def can_purchase(price: float, quantity: int, active: bool = True) -> bool:
     return isinstance(price, (int, float)) and math.isfinite(price) and isinstance(quantity, int) and active`,
   },
+  {
+    name: 'binary search with internal blank lines',
+    expected: 'verified',
+    complexity: 'O(log n)',
+    code: `def binary_search(numbers: list[int], target: int) -> int:
+    left = 0
+    right = len(numbers) - 1
+
+    while left <= right:
+        middle = (left + right) // 2
+        if numbers[middle] == target:
+            return middle
+        if numbers[middle] < target:
+            left = middle + 1
+        else:
+            right = middle - 1
+
+    return -1`,
+  },
 ];
 
 let failed = 0;

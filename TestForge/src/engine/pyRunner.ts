@@ -22,10 +22,18 @@ function pythonSuggestion(code: string): CodeSuggestion | undefined {
   const upperFirst = /(\b[A-Za-z_]\w*)\s*(<=|<)\s*(-?\d+(?:\.\d+)?)\s+or\s+\1\s*(>=|>)\s*(-?\d+(?:\.\d+)?)/;
   const rangeMatch = lowerFirst.exec(code) ?? upperFirst.exec(code);
   if (rangeMatch?.index !== undefined) {
-    const corrected = rangeMatch[0].replace(/\s+or\s+/, ' and ');
+    const variable = rangeMatch[1] ?? '';
+    const boundedExpression = rangeMatch[0].replace(/\s+or\s+/, ' and ');
+    const typedInteger = new RegExp(`\\b${variable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:\\s*int\\b`).test(code);
+    const alreadyChecksInteger = new RegExp(`isinstance\\s*\\(\\s*${variable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*,\\s*int\\s*\\)`).test(code);
+    const corrected = typedInteger && !alreadyChecksInteger
+      ? `isinstance(${variable}, int) and (${boundedExpression})`
+      : boundedExpression;
     return {
       line: code.slice(0, rangeMatch.index).split('\n').length,
-      message: 'This range uses or, so values outside one boundary can still pass the other condition. Use and to require both boundaries.',
+      message: typedInteger && !alreadyChecksInteger
+        ? 'This integer range uses or, so out-of-range values can pass and decimal values are not rejected. Require an int and join both boundaries with and.'
+        : 'This range uses or, so values outside one boundary can still pass the other condition. Use and to require both boundaries.',
       correctedCode: code.slice(0, rangeMatch.index) + corrected +
         code.slice(rangeMatch.index + rangeMatch[0].length),
     };
@@ -226,16 +234,17 @@ function guardModuleCode(code: string): string {
       keepLines.push(line);
       continue;
     }
+    // Blank lines inside a function do not end its indentation scope.
+    if (isBlank) {
+      keepLines.push(line);
+      continue;
+    }
     if (isIndented && inDef) {
       keepLines.push(line);
       continue;
     }
     // Unindented non-def line resets context
     inDef = false;
-    if (isBlank) {
-      keepLines.push(line);
-      continue;
-    }
     // Top-level executable statement
     execLines.push('    ' + line);
   }
