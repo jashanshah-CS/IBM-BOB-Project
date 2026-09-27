@@ -71,6 +71,11 @@ function runProcess(
       resolve({ stdout, stderr: stderr + '\n[timeout]', exitCode: -1 });
     }, timeoutMs);
 
+    proc.on('error', (error) => {
+      clearTimeout(timer);
+      resolve({ stdout, stderr: `${stderr}\n${error.message}`, exitCode: 1 });
+    });
+
     proc.on('close', (code) => {
       clearTimeout(timer);
       resolve({ stdout, stderr, exitCode: code ?? 1 });
@@ -291,7 +296,7 @@ export async function evaluatePython(
     }
 
     // Run pytest with -v so we get named PASSED/FAILED lines, not just dots
-    const { stdout, stderr } = await runProcess(
+    const { stdout, stderr, exitCode } = await runProcess(
       pythonExe(),
       [
         '-m', 'pytest', basename(testFile), '--rootdir', runDir,
@@ -302,6 +307,16 @@ export async function evaluatePython(
     );
 
     const { tests, diagnostics } = parsePytestOutput(stdout, stderr);
+    if (tests.length === 0 && diagnostics.length === 0) {
+      const detail = (stderr || stdout).trim().split(/\r?\n/).filter(Boolean).slice(-1)[0];
+      diagnostics.push({
+        line: 1,
+        column: 1,
+        message: exitCode === 0
+          ? 'pytest completed without discovering any generated tests.'
+          : `pytest could not execute${detail ? `: ${detail}` : ` (exit code ${exitCode})`}.`,
+      });
+    }
     const passed = tests.filter((t) => t.passed).length;
     const failed = tests.filter((t) => !t.passed).length;
 
