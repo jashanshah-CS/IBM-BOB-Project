@@ -167,6 +167,38 @@ const cases = [
       return total;
     }`,
   },
+  {
+    name: 'correct binary search',
+    expected: 'verified',
+    time: 'O(log n)',
+    code: `export function binarySearch(numbers: number[], target: number): number {
+      let left = 0;
+      let right = numbers.length - 1;
+      while (left <= right) {
+        const middle = Math.floor((left + right) / 2);
+        if (numbers[middle] === target) return middle;
+        if (numbers[middle] < target) left = middle + 1;
+        else right = middle - 1;
+      }
+      return -1;
+    }`,
+  },
+  {
+    name: 'binary search with reversed interval updates',
+    expected: 'failing',
+    time: 'O(log n)',
+    code: `export function binarySearch(numbers: number[], target: number): number {
+      let left = 0;
+      let right = numbers.length - 1;
+      while (left <= right) {
+        const middle = Math.floor((left + right) / 2);
+        if (numbers[middle] === target) return middle;
+        if (numbers[middle] < target) right = middle - 1;
+        else left = middle + 1;
+      }
+      return -1;
+    }`,
+  },
 ];
 
 let failures = 0;

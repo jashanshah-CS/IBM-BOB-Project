@@ -298,6 +298,19 @@ function renderUnitTestFile(
     }
     lines.push(`  });`);
 
+    if (/binary_?search/i.test(sym.name) && sym.params.length >= 2 && /number/i.test(sym.returnType)) {
+      lines.push(``);
+      lines.push(`  it('finds first, middle and last positions', () => {`);
+      lines.push(`    expect(${sym.name}([1, 3, 5, 7], 1)).toBe(0);`);
+      lines.push(`    expect(${sym.name}([1, 3, 5, 7], 5)).toBe(2);`);
+      lines.push(`    expect(${sym.name}([1, 3, 5, 7], 7)).toBe(3);`);
+      lines.push(`  });`);
+      lines.push(``);
+      lines.push(`  it('returns -1 for a missing target', () => {`);
+      lines.push(`    expect(${sym.name}([1, 3, 5, 7], 4)).toBe(-1);`);
+      lines.push(`  });`);
+    }
+
     // Edge cases from the edge-case engine
     for (const ec of symEdgeCases) {
       const bodyLines = renderEdgeCaseBody(sym, ec);

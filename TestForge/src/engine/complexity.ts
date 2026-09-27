@@ -25,6 +25,9 @@ export function estimateComplexity(code: string): ComplexityEstimate {
   let allocatesCollection = false;
   let cyclomatic = 1;
   let recursiveCalls = 0;
+  const binarySearchPattern = /\bwhile\b/.test(code) &&
+    /Math\.floor\s*\(/.test(code) && /\/\s*2/.test(code) &&
+    /=\s*\w+\s*[+-]\s*1/.test(code);
   const functionNames: string[] = [];
   const evidence = new Set<string>();
 
@@ -89,6 +92,9 @@ export function estimateComplexity(code: string): ComplexityEstimate {
     time = 'O(n)';
     confidence = 'low';
     evidence.add('An apparent recursive call was found; the estimate assumes the input shrinks each call.');
+  } else if (binarySearchPattern && maxLoopDepth === 1) {
+    time = 'O(log n)';
+    evidence.add('The loop halves a search interval using a midpoint and moves one boundary past it.');
   } else if (maxLoopDepth >= 3) {
     time = `O(n^${maxLoopDepth})`;
     evidence.add(`${maxLoopDepth} nested loops were found.`);

@@ -135,7 +135,7 @@ Run commands inside `TestForge/`:
 | `npm run typecheck` | Type-check source and tests |
 | `npm run lint` | Lint source and test files |
 | `npm run lint:fix` | Apply supported ESLint fixes |
-| `npm run audit` | Run the 20-scenario TypeScript regression audit |
+| `npm run audit` | Run the 22-scenario TypeScript regression audit |
 | `npm run audit:python` | Run the 20-scenario Python regression audit |
 
 ## API
@@ -194,7 +194,7 @@ npm run audit
 npm run audit:python
 ```
 
-The documented regression matrices cover 20 TypeScript and 20 Python scenarios, including correct and defective inputs, syntax diagnostics, generated assertions, timeout isolation, suggested corrections and complexity estimates.
+The documented regression matrices cover 22 TypeScript and 20 Python scenarios, including correct and defective inputs, binary-search semantics, syntax diagnostics, generated assertions, timeout isolation, suggested corrections and complexity estimates.
 
 ## Current scope
 

@@ -235,6 +235,21 @@ export async function evaluateTypeScript(code: string): Promise<EvaluationResult
       const normalArgs = sym.params.map(defaultValue);
       tests.push(await executeCase(fn, sym, `${sym.name}: valid input`, normalArgs, undefined));
 
+      if (/binary_?search/i.test(sym.name) && sym.params.length >= 2 && /number/i.test(sym.returnType)) {
+        const searchCases: Array<[string, number[], number, number]> = [
+          ['finds first position', [1, 3, 5, 7], 1, 0],
+          ['finds middle position', [1, 3, 5, 7], 5, 2],
+          ['finds last position', [1, 3, 5, 7], 7, 3],
+          ['returns -1 for missing target', [1, 3, 5, 7], 4, -1],
+        ];
+        for (const [description, values, target, expected] of searchCases) {
+          tests.push(await executeCase(
+            fn, sym, `${sym.name}: ${description}`, [values, target],
+            undefined, false, expected, true,
+          ));
+        }
+      }
+
       for (const edgeCase of edgeCases.filter((candidate) => candidate.symbolName === sym.name)) {
         const [paramName, rawValue] = edgeCase.inputSuggestion.split('=').map((part) => part.trim());
         if (!paramName || rawValue === undefined) continue;

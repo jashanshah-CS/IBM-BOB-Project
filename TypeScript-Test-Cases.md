@@ -15,7 +15,7 @@ npm run lint
 Latest result:
 
 ```text
-20/20 evaluator scenarios passed
+22/22 evaluator scenarios passed
 Infinite-loop isolation passed
 Generated maximum-boundary assertion passed
 Generated decimal/integer assertion passed
@@ -47,6 +47,8 @@ In this audit, `PASS` means TestForge gave the expected answer. Some deliberatel
 | 18 | TypeScript syntax error | Missing expression after `>` | `analysis-error` | `analysis-error` | Use the Diagnostics tab to locate and repair the invalid syntax. |
 | 19 | Nested-loop complexity | Two nested loops | `O(n^2)` | `O(n^2)` | The estimate correctly identifies quadratic growth. |
 | 20 | Sort plus sequential loop | Sort followed by a linear pass | `O(n log n)` | `O(n log n)` | Sorting dominates the later linear work. |
+| 21 | Correct binary search | Narrows the sorted search interval toward the target | `verified`, `O(log n)` | `verified`, `O(log n)` | TestForge checks first, middle, last and missing targets and recognises logarithmic interval reduction. |
+| 22 | Broken binary search | Reverses the left and right boundary updates | `failing`, `O(log n)` | `failing`, `O(log n)` | Correct the updates to `left = middle + 1` when the middle value is too small and `right = middle - 1` when it is too large. |
 
 ## Safety and generated-source checks
 
